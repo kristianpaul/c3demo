@@ -1,23 +1,23 @@
 set_io clk R9
 
-set_io led1 C8
-set_io led2 F7
-set_io led3 K9
+set_io LED1 C8
+set_io LED2 F7
+set_io LED3 K9
 
-set_io P1_1  D8
-set_io P1_2  C7
-set_io P1_3  C6
-set_io P1_4  B3
-set_io P1_7  A1
-set_io P1_8  A2
-set_io P1_9  B1
-set_io P1_10 B2
+set_io P1_1  A1
+set_io P1_2  A2
+set_io P1_3  B1
+set_io P1_4  B2
+set_io P1_7  D8
+set_io P1_8  C7
+set_io P1_9  C6
+set_io P1_10 B3
 
-# set_io P2_1  D8
-# set_io P2_2  C7
-# set_io P2_3  C6
-# set_io P2_4  B3
-# set_io P2_7  A1
-# set_io P2_8  A2
-# set_io P2_9  B1
-# set_io P2_10 B2
+set_io P2_1  A9
+set_io P2_2  B9
+set_io P2_3  A10
+set_io P2_4  B10
+set_io P2_7  A11
+set_io P2_8  B11
+set_io P2_9  A16
+set_io P2_10 A15
