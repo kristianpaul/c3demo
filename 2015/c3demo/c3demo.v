@@ -91,7 +91,8 @@ module c3demo (
 	// Memory/IO Interface
 
 	// 2048 32bit words = 8k bytes memory
-	localparam MEM_SIZE = 2048;
+	// 128 32bit words = 512 bytes memory
+	localparam MEM_SIZE = 128;
 	reg [31:0] memory [0:MEM_SIZE-1];
 	initial $readmemh("firmware.hex", memory);
 
