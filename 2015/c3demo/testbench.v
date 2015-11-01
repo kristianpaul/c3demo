@@ -1,6 +1,6 @@
 module testbench;
 	reg clk = 0;
-	integer i;
+	integer i, k;
 
 	initial begin
 		#5; forever #5 clk = !clk;
@@ -15,12 +15,15 @@ module testbench;
 	initial begin
 		$dumpfile("testbench.vcd");
 		$dumpvars(0, testbench);
-		for (i = 0; i < 30; i = i+1) begin
-			repeat (10000) @(posedge clk);
-			$write("%3d", i);
-			$fflush;
+		for (k = 0; k < 10; k = k+1) begin
+			$write("%3d:", k);
+			for (i = 0; i < 30; i = i+1) begin
+				repeat (10000) @(posedge clk);
+				$write("%3d", i);
+				$fflush;
+			end
+			$display("");
 		end
-		$display("");
 		$finish;
 	end
 endmodule
