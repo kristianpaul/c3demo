@@ -11,102 +11,114 @@
 module c3demo (
 	input clk,
 	output LED1, LED2, LED3,
-	output reg PANEL_R0, PANEL_G0, PANEL_B0, PANEL_R1, PANEL_G1, PANEL_B1,
-	output reg PANEL_A, PANEL_B, PANEL_C, PANEL_D, PANEL_CLK, PANEL_STB, PANEL_OE
+	output PANEL_R0, PANEL_G0, PANEL_B0, PANEL_R1, PANEL_G1, PANEL_B1,
+	output PANEL_A, PANEL_B, PANEL_C, PANEL_D, PANEL_CLK, PANEL_STB, PANEL_OE
 );
-	reg [8:0] cnt_x = 0;
-	reg [3:0] cnt_y = 0;
-	reg [2:0] cnt_z = 0;
-	reg state = 0;
+	// -------------------------------
+	// Reset Generator
 
-	reg [4:0] addr_x;
-	reg [4:0] addr_y;
-	reg [2:0] addr_z;
-	reg [2:0] data_rgb;
-	reg [2:0] data_rgb_q;
-	reg [8:0] max_cnt_x;
+	reg [7:0] resetn_counter = 0;
+	wire resetn = &resetn_counter;
 
 	always @(posedge clk) begin
-		case (cnt_z)
-			0: max_cnt_x <= 36;
-			1: max_cnt_x <= 36;
-			2: max_cnt_x <= 36;
-			3: max_cnt_x <= 36;
-			4: max_cnt_x <= 36;
-			5: max_cnt_x <= 64;
-			6: max_cnt_x <= 128;
-			7: max_cnt_x <= 256;
-		endcase
+		if (!resetn)
+			resetn_counter <= resetn_counter + 1;
 	end
 
+
+	// -------------------------------
+	// LED Panel Driver
+
+	reg led_wr_enable;
+	reg [4:0] led_wr_addr_x = 0;
+	reg [4:0] led_wr_addr_y = 0;
+	reg [23:0] led_wr_rgb_data;
+
+	ledpanel ledpanel (
+		.clk        (clk            ),
+		.wr_enable  (led_wr_enable  ),
+		.wr_addr_x  (led_wr_addr_x  ),
+		.wr_addr_y  (led_wr_addr_y  ),
+		.wr_rgb_data(led_wr_rgb_data),
+
+		.PANEL_R0   (PANEL_R0 ),
+		.PANEL_G0   (PANEL_G0 ),
+		.PANEL_B0   (PANEL_B0 ),
+		.PANEL_R1   (PANEL_R1 ),
+		.PANEL_G1   (PANEL_G1 ),
+		.PANEL_B1   (PANEL_B1 ),
+		.PANEL_A    (PANEL_A  ),
+		.PANEL_B    (PANEL_B  ),
+		.PANEL_C    (PANEL_C  ),
+		.PANEL_D    (PANEL_D  ),
+		.PANEL_CLK  (PANEL_CLK),
+		.PANEL_STB  (PANEL_STB),
+		.PANEL_OE   (PANEL_OE )
+	);
+
+
+	// -------------------------------
+	// PicoRV32 Core
+
+	wire mem_valid;
+	wire [31:0] mem_addr;
+	wire [31:0] mem_wdata;
+	wire [3:0] mem_wstrb;
+
+	reg mem_ready;
+	reg [31:0] mem_rdata;
+
+	picorv32 #(
+		.ENABLE_COUNTERS(0),
+		.LATCHED_MEM_RDATA(1),
+		.TWO_STAGE_SHIFT(0),
+		.TWO_CYCLE_ALU(1),
+		.CATCH_MISALIGN(0),
+		.CATCH_ILLINSN(0)
+	) cpu (
+		.clk      (clk      ),
+		.resetn   (resetn   ),
+		.mem_valid(mem_valid),
+		.mem_ready(mem_ready),
+		.mem_addr (mem_addr ),
+		.mem_wdata(mem_wdata),
+		.mem_wstrb(mem_wstrb),
+		.mem_rdata(mem_rdata)
+	);
+
+
+	// -------------------------------
+	// Memory/IO Interface
+
+	// 2048 32bit words = 8k bytes memory
+	localparam MEM_SIZE = 2048;
+	reg [31:0] memory [0:MEM_SIZE-1];
+	initial $readmemh("firmware.hex", memory);
+
 	always @(posedge clk) begin
-		state <= !state;
-		if (!state) begin
-			if (cnt_x > max_cnt_x) begin
-				cnt_x <= 0;
-				cnt_z <= cnt_z + 1;
-				if (&cnt_z)
-					cnt_y <= cnt_y + 1;
-			end else begin
-				cnt_x <= cnt_x + 1;
-			end
+		mem_ready <= 0;
+		led_wr_enable <= 0;
+		if (resetn && mem_valid && !mem_ready) begin
+			(* parallel_case *)
+			case (1)
+				!mem_wstrb && (mem_addr >> 2) < MEM_SIZE: begin
+					mem_rdata <= memory[mem_addr >> 2];
+					mem_ready <= 1;
+				end
+				|mem_wstrb && (mem_addr >> 2) < MEM_SIZE: begin
+					if (mem_wstrb[0]) memory[mem_addr >> 2][ 7: 0] <= mem_wdata[ 7: 0];
+					if (mem_wstrb[1]) memory[mem_addr >> 2][15: 8] <= mem_wdata[15: 8];
+					if (mem_wstrb[2]) memory[mem_addr >> 2][23:16] <= mem_wdata[23:16];
+					if (mem_wstrb[3]) memory[mem_addr >> 2][31:24] <= mem_wdata[31:24];
+					mem_ready <= 1;
+				end
+				|mem_wstrb && (mem_addr & 32'hF000_0000) == 32'h1000_0000: begin
+					{led_wr_addr_y, led_wr_addr_x} <= mem_addr >> 2;
+					led_wr_rgb_data <= mem_wdata;
+					led_wr_enable <= 1;
+					mem_ready <= 1;
+				end
+			endcase
 		end
-	end
-
-	always @(posedge clk) begin
-		PANEL_OE <= cnt_z == 0 ||
-				(cnt_z == 1 && cnt_x > 1) ||
-				(cnt_z == 2 && cnt_x > 3) ||
-				(cnt_z == 3 && cnt_x > 7) ||
-				(cnt_z == 4 && cnt_x > 15);
-		if (state) begin
-			PANEL_CLK <= cnt_x < 34;
-			PANEL_STB <= cnt_x == 34;
-		end else begin
-			PANEL_CLK <= 0;
-			PANEL_STB <= 0;
-		end
-	end
-
-	always @(posedge clk) begin
-		addr_x <= cnt_x;
-		addr_y <= cnt_y + 16*(!state);
-		addr_z <= cnt_z;
-	end
-
-	always @(posedge clk) begin
-		data_rgb <= 3'b000;
-		if (addr_x == addr_y)
-			data_rgb <= 3'b111;
-		else if (addr_x < 16)
-			data_rgb[2] <= addr_x[addr_z >> 1];
-	end
-
-	always @(posedge clk) begin
-		data_rgb_q <= data_rgb;
-		if (!state) begin
-			if (cnt_x < 34) begin
-				{PANEL_R1, PANEL_R0} <= {data_rgb[2], data_rgb_q[2]};
-				{PANEL_G1, PANEL_G0} <= {data_rgb[1], data_rgb_q[1]};
-				{PANEL_B1, PANEL_B0} <= {data_rgb[0], data_rgb_q[0]};
-			end else begin
-				{PANEL_R1, PANEL_R0} <= 0;
-				{PANEL_G1, PANEL_G0} <= 0;
-				{PANEL_B1, PANEL_B0} <= 0;
-			end
-		end
-		if (PANEL_STB) begin
-			{PANEL_D, PANEL_C, PANEL_B, PANEL_A} <= cnt_y;
-		end
-	end
-
-	integer oe_cnt = 0;
-	always @(posedge clk) begin
-		if (PANEL_OE || PANEL_STB) begin
-			if (oe_cnt)
-				$display("OE Cycles: %3d", oe_cnt);
-			oe_cnt <= 0;
-		end else
-			oe_cnt <= oe_cnt + 1;
 	end
 endmodule

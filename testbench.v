@@ -10,7 +10,7 @@ module testbench;
 	initial begin
 		$dumpfile("testbench.vcd");
 		$dumpvars(0, testbench);
-		repeat (10000) @(posedge clk);
+		repeat (100000) @(posedge clk);
 		$finish;
 	end
 endmodule
