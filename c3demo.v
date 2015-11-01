@@ -187,11 +187,11 @@ module c3demo (
 				end
 				(mem_addr & 32'hF000_0000) == 32'h2000_0000: begin
 					if (mem_wstrb) begin
-						if (mem_addr[7:0] == 0) LED1 <= mem_wdata;
-						if (mem_addr[7:0] == 1) LED2 <= mem_wdata;
-						if (mem_addr[7:0] == 2) LED3 <= mem_wdata;
-						if (mem_addr[7:0] == 3) DEBUG0 <= mem_wdata;
-						if (mem_addr[7:0] == 4) DEBUG1 <= mem_wdata;
+						if (mem_addr[7:0] == 8'h 00) LED1 <= mem_wdata;
+						if (mem_addr[7:0] == 8'h 04) LED2 <= mem_wdata;
+						if (mem_addr[7:0] == 8'h 08) LED3 <= mem_wdata;
+						if (mem_addr[7:0] == 8'h 0c) DEBUG0 <= mem_wdata;
+						if (mem_addr[7:0] == 8'h 10) DEBUG1 <= mem_wdata;
 					end
 					mem_ready <= 1;
 				end

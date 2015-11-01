@@ -7,19 +7,19 @@ static inline void setled1(bool v) {
 }
 
 static inline void setled2(bool v) {
-	*(volatile uint32_t*)0x20000001 = v;
+	*(volatile uint32_t*)0x20000004 = v;
 }
 
 static inline void setled3(bool v) {
-	*(volatile uint32_t*)0x20000002 = v;
+	*(volatile uint32_t*)0x20000008 = v;
 }
 
 static inline void setdebug0(bool v) {
-	*(volatile uint32_t*)0x20000003 = v;
+	*(volatile uint32_t*)0x2000000c = v;
 }
 
 static inline void setdebug1(bool v) {
-	*(volatile uint32_t*)0x20000004 = v;
+	*(volatile uint32_t*)0x20000010 = v;
 }
 
 void setpixel(int x, int y, uint8_t r, uint8_t g, uint8_t b)
@@ -115,7 +115,7 @@ void main()
 		asm volatile ("rdcycle %0" : "=r"(num_cycles_now));
 
 		uint32_t cycles = num_cycles_now - num_cycles_start;
-		uint32_t cycles_limit = 20000;
+		uint32_t cycles_limit = 0x40000;
 
 		setled1(3*cycles > cycles_limit);
 		setled2(3*cycles > 2*cycles_limit);
