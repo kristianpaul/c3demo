@@ -6,7 +6,11 @@ module testbench;
 		#5; forever #5 clk = !clk;
 	end
 
-	c3demo uut (.clk(clk));
+	c3demo #(
+		.USE_PLL(0)
+	) uut (
+		.CLK12MHZ(clk)
+	);
 
 	initial begin
 		$dumpfile("testbench.vcd");

@@ -1,4 +1,5 @@
-set_io clk R9
+set_io CLK12MHZ R9
+set_io CLKOUT P14
 
 set_io LED1 C8
 set_io LED2 F7
