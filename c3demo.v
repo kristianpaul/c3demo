@@ -10,7 +10,7 @@
 
 module c3demo (
 	input CLK12MHZ,
-	output DEBUG0, DEBUG1, LED1, LED2, LED3,
+	output reg DEBUG0, DEBUG1, LED1, LED2, LED3,
 	output PANEL_R0, PANEL_G0, PANEL_B0, PANEL_R1, PANEL_G1, PANEL_B1,
 	output PANEL_A, PANEL_B, PANEL_C, PANEL_D, PANEL_CLK, PANEL_STB, PANEL_OE
 );
@@ -27,8 +27,8 @@ module c3demo (
 
 	wire clk;
 
-	assign DEBUG0 = clk;
-	assign DEBUG1 = CLK12MHZ;
+	// always @* DEBUG0 = clk;
+	// always @* DEBUG1 = CLK12MHZ;
 
 	generate if (USE_PLL) begin
 		// wire [7:0] DYNAMICDELAY = 0;
@@ -129,12 +129,12 @@ module c3demo (
 	reg [31:0] mem_rdata;
 
 	picorv32 #(
-		.ENABLE_COUNTERS(0),
-		.LATCHED_MEM_RDATA(1),
-		.TWO_STAGE_SHIFT(0),
-		.TWO_CYCLE_ALU(1),
-		.CATCH_MISALIGN(0),
-		.CATCH_ILLINSN(0)
+		// .ENABLE_COUNTERS(1),
+		// .LATCHED_MEM_RDATA(1),
+		// .TWO_STAGE_SHIFT(1),
+		// .TWO_CYCLE_ALU(1),
+		// .CATCH_MISALIGN(0),
+		// .CATCH_ILLINSN(0)
 	) cpu (
 		.clk      (clk      ),
 		.resetn   (resetn   ),
@@ -156,24 +156,43 @@ module c3demo (
 	always @(posedge clk) begin
 		mem_ready <= 0;
 		led_wr_enable <= 0;
-		if (resetn && mem_valid && !mem_ready) begin
+		if (!resetn) begin
+			LED1 <= 0;
+			LED2 <= 0;
+			LED3 <= 0;
+			DEBUG0 <= 0;
+			DEBUG1 <= 0;
+		end else
+		if (mem_valid && !mem_ready) begin
 			(* parallel_case *)
 			case (1)
-				!mem_wstrb && (mem_addr >> 2) < MEM_SIZE: begin
-					mem_rdata <= memory[mem_addr >> 2];
+				(mem_addr >> 2) < MEM_SIZE: begin
+					if (mem_wstrb) begin
+						if (mem_wstrb[0]) memory[mem_addr >> 2][ 7: 0] <= mem_wdata[ 7: 0];
+						if (mem_wstrb[1]) memory[mem_addr >> 2][15: 8] <= mem_wdata[15: 8];
+						if (mem_wstrb[2]) memory[mem_addr >> 2][23:16] <= mem_wdata[23:16];
+						if (mem_wstrb[3]) memory[mem_addr >> 2][31:24] <= mem_wdata[31:24];
+					end else begin
+						mem_rdata <= memory[mem_addr >> 2];
+					end
 					mem_ready <= 1;
 				end
-				|mem_wstrb && (mem_addr >> 2) < MEM_SIZE: begin
-					if (mem_wstrb[0]) memory[mem_addr >> 2][ 7: 0] <= mem_wdata[ 7: 0];
-					if (mem_wstrb[1]) memory[mem_addr >> 2][15: 8] <= mem_wdata[15: 8];
-					if (mem_wstrb[2]) memory[mem_addr >> 2][23:16] <= mem_wdata[23:16];
-					if (mem_wstrb[3]) memory[mem_addr >> 2][31:24] <= mem_wdata[31:24];
+				(mem_addr & 32'hF000_0000) == 32'h1000_0000: begin
+					if (mem_wstrb) begin
+						{led_wr_addr_y, led_wr_addr_x} <= mem_addr >> 2;
+						led_wr_rgb_data <= mem_wdata;
+						led_wr_enable <= 1;
+					end
 					mem_ready <= 1;
 				end
-				|mem_wstrb && (mem_addr & 32'hF000_0000) == 32'h1000_0000: begin
-					{led_wr_addr_y, led_wr_addr_x} <= mem_addr >> 2;
-					led_wr_rgb_data <= mem_wdata;
-					led_wr_enable <= 1;
+				(mem_addr & 32'hF000_0000) == 32'h2000_0000: begin
+					if (mem_wstrb) begin
+						if (mem_addr[7:0] == 0) LED1 <= mem_wdata;
+						if (mem_addr[7:0] == 1) LED2 <= mem_wdata;
+						if (mem_addr[7:0] == 2) LED3 <= mem_wdata;
+						if (mem_addr[7:0] == 3) DEBUG0 <= mem_wdata;
+						if (mem_addr[7:0] == 4) DEBUG1 <= mem_wdata;
+					end
 					mem_ready <= 1;
 				end
 			endcase

@@ -9,6 +9,10 @@ from PIL import Image
 im = Image.open("8x8font.png")
 pix = im.load()
 
+# shorten '-'
+pix[ord('-')*8 + 1, 3] = 1
+pix[ord('-')*8 + 2, 3] = 1
+
 print("uint8_t fontmem [8*128] = {");
 for i in range(128):
     for j in range(8):
