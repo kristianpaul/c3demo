@@ -155,22 +155,26 @@ void setpixel(int x, int y, uint8_t r, uint8_t g, uint8_t b)
 	}
 }
 
-bool settext(int x, int y, const char *str)
+void settext(int *xp, int *pp, int y, const char *str)
 {
-	bool retval = false;
+	int p = *pp, x = *xp;
 
-	for (; *str; str++)
+	while (1)
 	{
-		uint8_t *f = fontmem + 8*(*str);
-		uint8_t fl = fontleft[*str];
-		uint8_t fr = fontright[*str];
+		if (!str[p])
+			p = 0;
+
+		uint8_t *f = fontmem + 8*(str[p]);
+		uint8_t fl = fontleft[str[p]];
+		uint8_t fr = fontright[str[p]];
 
 		if (x < -8) {
+			p += 1;
 			x += fr-fl+1;
+			*pp = p;
+			*xp = x;
 			continue;
 		}
-
-		retval = true;
 
 		if (x > 32)
 			break;
@@ -184,11 +188,13 @@ bool settext(int x, int y, const char *str)
 					setpixel(x+ox, y+oy, 6*(x+ox+1), 6*(y+oy+1), 0);
 		}
 
+		p += 1;
 		x += fr-fl+1;
 	}
-
-	return retval;
 }
+
+const char *top_str = "Yosys ** Project IceStorm ** Arachne-PNR ** RISC-V ** PicoRV32 ** IcoBoard ** ";
+const char *bottom_str = "Yosys ** Project IceStorm ** Arachne-PNR ** RISC-V ** PicoRV32 ** IcoBoard ** ";
 
 void main()
 {
@@ -196,15 +202,14 @@ void main()
 	for (int y = 0; y < 32; y++)
 		setpixel(x, y, 6*(x+1), 6*(y+1), 0);
 
-	// for (int x = 0; x < 32; x += 2)
-	// 	setpixel(x, 0, 0, 0, 128);
+	int x1 = 0, p1 = 0;
+	int x2 = 0, p2 = 40;
 
 	while (1) {
-		int x = 32;
-		while (settext(x, 12, "  Yosys ** Project IceStorm ** Arachne-PNR ** RISC-V ** PicoRV32 ** IcoBoard  ")) {
-			for (int k = 0; k < 20000; k++)
-				asm volatile ("");
-			x--;
-		}
+		settext(&x1, &p1, 5, top_str);
+		settext(&x2, &p2, 19, bottom_str);
+		for (int k = 0; k < 20000; k++)
+			asm volatile ("");
+		x1--, x2--;
 	}
 }
