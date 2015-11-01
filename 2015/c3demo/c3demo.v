@@ -10,7 +10,7 @@
 
 module c3demo (
 	input CLK12MHZ,
-	output CLKOUT, LED1, LED2, LED3,
+	output DEBUG0, DEBUG1, LED1, LED2, LED3,
 	output PANEL_R0, PANEL_G0, PANEL_B0, PANEL_R1, PANEL_G1, PANEL_B1,
 	output PANEL_A, PANEL_B, PANEL_C, PANEL_D, PANEL_CLK, PANEL_STB, PANEL_OE
 );
@@ -25,8 +25,10 @@ module c3demo (
 	// -------------------------------
 	// PLL
 
-	wire pll_lock, clk;
-	assign CLKOUT = clk;
+	wire clk;
+
+	assign DEBUG0 = clk;
+	assign DEBUG1 = CLK12MHZ;
 
 	generate if (USE_PLL) begin
 		// wire [7:0] DYNAMICDELAY = 0;

@@ -7,5 +7,4 @@ chmod -x firmware.elf
 riscv32-unknown-elf-objcopy -O binary firmware.elf firmware.bin
 chmod -x firmware.bin
 
-# python3 makehex.py firmware.bin 2048 > firmware.hex
-python3 makehex.py firmware.bin 512 > firmware.hex
+python3 makehex.py firmware.bin 2048 > firmware.hex
