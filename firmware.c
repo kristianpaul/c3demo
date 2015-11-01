@@ -201,7 +201,7 @@ void main()
 
 	while (1) {
 		int x = 32;
-		while (settext(x, 12, "  Yosys ** Project IceStorm ** Arachne-PNR ** RISC-V ** PicoRV32  ")) {
+		while (settext(x, 12, "  Yosys ** Project IceStorm ** Arachne-PNR ** RISC-V ** PicoRV32 ** IcoBoard  ")) {
 			for (int k = 0; k < 20000; k++)
 				asm volatile ("");
 			x--;
