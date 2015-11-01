@@ -8,9 +8,9 @@ fi
 if true; then
 	yosys -p '
 		read_verilog c3demo.v
-		proc; memory_dff; memory_collect
-		# synth -run coarse
-		# synth_ice40 -run :bram -top c3demo
+		read_verilog ledpanel.v
+		read_verilog picorv32.v
+		synth_ice40 -top c3demo
 		write_verilog postsim.v
 		write_ilang postsim.il
 	'
