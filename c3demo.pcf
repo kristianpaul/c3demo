@@ -6,6 +6,18 @@ set_io LED1 C8
 set_io LED2 F7
 set_io LED3 K9
 
+set_io RASPI_11 A5
+set_io RASPI_12 F9
+set_io RASPI_15 E9
+set_io RASPI_16 E10
+set_io RASPI_19 A6
+set_io RASPI_21 A7
+set_io RASPI_24 H6
+set_io RASPI_35 D10
+set_io RASPI_36 D9
+set_io RASPI_38 C9
+set_io RASPI_40 C10
+
 # set_io P1_1  A1
 # set_io P1_2  A2
 # set_io P1_3  B1
