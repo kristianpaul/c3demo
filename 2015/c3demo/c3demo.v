@@ -157,22 +157,22 @@ module c3demo (
 	reg prog_mem_active = 0;
 	reg prog_mem_reset = 0;
 
-	always @(posedge clk) begin
-		if (recv_sync) begin
-			prog_mem_addr <= ~0;
-			prog_mem_data <= 0;
-			prog_mem_state <= 0;
-			prog_mem_active <= 0;
-			prog_mem_reset <= 0;
-		end else
-		if (recv_ep1_valid) begin
-			prog_mem_addr <= prog_mem_addr + &prog_mem_state;
-			prog_mem_data <= {recv_ep1_data, prog_mem_data[31:8]};
-			prog_mem_state <= prog_mem_state + 1;
-			prog_mem_active <= &prog_mem_state;
-			prog_mem_reset <= 1;
-		end
-	end
+	// always @(posedge clk) begin
+	// 	if (recv_sync) begin
+	// 		prog_mem_addr <= ~0;
+	// 		prog_mem_data <= 0;
+	// 		prog_mem_state <= 0;
+	// 		prog_mem_active <= 0;
+	// 		prog_mem_reset <= 0;
+	// 	end else
+	// 	if (recv_ep1_valid) begin
+	// 		prog_mem_addr <= prog_mem_addr + &prog_mem_state;
+	// 		prog_mem_data <= {recv_ep1_data, prog_mem_data[31:8]};
+	// 		prog_mem_state <= prog_mem_state + 1;
+	// 		prog_mem_active <= &prog_mem_state;
+	// 		prog_mem_reset <= 1;
+	// 	end
+	// end
 
 
 	// -------------------------------
@@ -217,7 +217,7 @@ module c3demo (
 	reg mem_ready;
 	reg [31:0] mem_rdata;
 
-	wire resetn_picorv32 = resetn && !prog_mem_reset;
+	wire resetn_picorv32 = resetn; // && !prog_mem_reset;
 
 	picorv32 #(
 		// .ENABLE_COUNTERS(1),
@@ -254,9 +254,9 @@ module c3demo (
 			DEBUG0 <= 0;
 			DEBUG1 <= 0;
 
-			if (prog_mem_active) begin
-				memory[prog_mem_addr] <= prog_mem_data;
-			end
+			// if (prog_mem_active) begin
+			// 	memory[prog_mem_addr] <= prog_mem_data;
+			// end
 		end else
 		if (mem_valid && !mem_ready) begin
 			(* parallel_case *)
@@ -364,14 +364,20 @@ module c3demo_crossclkfifo #(
 	input                  in_shift,
 	input      [WIDTH-1:0] in_data,
 	output reg             in_full,
-	output reg             in_empty,
+	output reg             in_nempty,
 
 	input                  out_clk,
 	input                  out_pop,
-	output reg [WIDTH-1:0] out_data,
-	output reg             out_empty
+	output     [WIDTH-1:0] out_data,
+	output reg             out_nempty
 );
 	localparam integer ABITS = $clog2(DEPTH);
+
+	initial begin
+		in_full = 0;
+		in_nempty = 0;
+		out_nempty = 0;
+	end
 
 	function [ABITS-1:0] bin2gray(input [ABITS-1:0] in);
 		integer i;
@@ -393,8 +399,8 @@ module c3demo_crossclkfifo #(
 
 	reg [WIDTH-1:0] memory [0:DEPTH-1];
 
-	reg [ABITS-1:0] in_ipos = 0, in_opos;
-	reg [ABITS-1:0] out_opos = 0, out_ipos;
+	reg [ABITS-1:0] in_ipos = 0, in_opos = 0;
+	reg [ABITS-1:0] out_opos = 0, out_ipos = 0;
 
 
 	// input side of fifo
@@ -406,11 +412,11 @@ module c3demo_crossclkfifo #(
 		if (in_shift && !in_full) begin
 			memory[in_ipos] <= in_data;
 			in_full <= next_next_ipos == in_opos;
-			in_empty <= 0;
+			in_nempty <= 1;
 			in_ipos <= next_ipos;
 		end else begin
 			in_full <= next_ipos == in_opos;
-			in_empty <= in_ipos == in_opos;
+			in_nempty <= in_ipos != in_opos;
 		end
 	end
 
@@ -418,25 +424,28 @@ module c3demo_crossclkfifo #(
 	// output side of fifo
 
 	wire [ABITS-1:0] next_opos = out_opos == DEPTH-1 ? 0 : out_opos + 1;
+	reg [WIDTH-1:0] out_data_d = 0;
 
 	always @(posedge out_clk) begin
-		if (out_pop && !out_empty) begin
-			out_data <= memory[next_opos];
-			out_empty <= next_opos == out_ipos;
+		if (out_pop && out_nempty) begin
+			out_data_d <= memory[next_opos];
+			out_nempty <= next_opos != out_ipos;
 			out_opos <= next_opos;
 		end else begin
-			out_data <= memory[out_opos];
-			out_empty <= out_opos == out_ipos;
+			out_data_d <= memory[out_opos];
+			out_nempty <= out_opos != out_ipos;
 		end
 	end
+
+	assign out_data = out_nempty ? out_data_d : 0;
 
 
 	// clock domain crossing of ipos
 
-	reg [ABITS-1:0] in_ipos_gray;
-	reg [ABITS-1:0] out_ipos_gray_2;
-	reg [ABITS-1:0] out_ipos_gray_1;
-	reg [ABITS-1:0] out_ipos_gray_0;
+	reg [ABITS-1:0] in_ipos_gray = 0;
+	reg [ABITS-1:0] out_ipos_gray_2 = 0;
+	reg [ABITS-1:0] out_ipos_gray_1 = 0;
+	reg [ABITS-1:0] out_ipos_gray_0 = 0;
 
 	always @(posedge in_clk) begin
 		in_ipos_gray <= bin2gray(in_ipos);
@@ -452,10 +461,10 @@ module c3demo_crossclkfifo #(
 
 	// clock domain crossing of opos
 
-	reg [ABITS-1:0] out_opos_gray;
-	reg [ABITS-1:0] in_opos_gray_2;
-	reg [ABITS-1:0] in_opos_gray_1;
-	reg [ABITS-1:0] in_opos_gray_0;
+	reg [ABITS-1:0] out_opos_gray = 0;
+	reg [ABITS-1:0] in_opos_gray_2 = 0;
+	reg [ABITS-1:0] in_opos_gray_1 = 0;
+	reg [ABITS-1:0] in_opos_gray_0 = 0;
 
 	always @(posedge out_clk) begin
 		out_opos_gray <= bin2gray(out_opos);
@@ -506,10 +515,6 @@ module c3demo_raspi_interface #(
 		.GLOBAL_BUFFER_OUTPUT(raspi_clk)
 	);
 
-`ifdef SIMULATION
-	assign {RASPI_11, RASPI_12, RASPI_15, RASPI_16, RASPI_19, RASPI_21, RASPI_24, RASPI_35, RASPI_36} = raspi_dir ? 9'bz : raspi_dout;
-	assign raspi_din = {RASPI_11, RASPI_12, RASPI_15, RASPI_16, RASPI_19, RASPI_21, RASPI_24, RASPI_35, RASPI_36};
-`else
 	SB_IO #(
 		.PIN_TYPE(6'b 1010_01),
 		.PULLUP(1'b 0)
@@ -519,7 +524,6 @@ module c3demo_raspi_interface #(
 		.D_OUT_0(raspi_dout),
 		.D_IN_0(raspi_din)
 	);
-`endif
 
 
 	// system clock side
@@ -545,28 +549,28 @@ module c3demo_raspi_interface #(
 	endfunction
 
 	wire [7:0] recv_epnum, send_epnum;
-	wire recv_empty, send_full;
+	wire recv_nempty, send_full;
 
-	assign recv_valid = recv_empty ? 0 : 1 << recv_epnum;
+	assign recv_valid = recv_nempty ? 1 << recv_epnum : 0;
 	assign send_ready = highest_bit(send_valid) & {NUM_EP{!send_full}};
 	assign send_epnum = highest_bit_index(send_valid);
 
-	assign sync = &recv_epnum && &recv_tdata && !recv_empty;
-	wire skip = !recv_valid && !recv_empty;
+	assign sync = &recv_epnum && &recv_tdata && recv_nempty;
+	wire skip = !recv_valid && recv_nempty;
 
 
 	// raspi side
 
 	reg [7:0] raspi_din_ep;
 	reg [7:0] raspi_dout_ep = 0;
-	wire raspi_recv_empty;
+	wire raspi_recv_nempty;
 
 	wire [15:0] raspi_send_data;
-	wire raspi_send_empty;
+	wire raspi_send_nempty;
 
 	always @* begin
-		raspi_dout = raspi_recv_empty ? 9'h 1ff : 9'h 1fe;
-		if (!raspi_send_empty) begin
+		raspi_dout = raspi_recv_nempty ? 9'h 1fe : 9'h 1ff;
+		if (raspi_send_nempty) begin
 			if (raspi_dout_ep != raspi_send_data[15:8])
 				raspi_dout = {1'b1, raspi_send_data[15:8]};
 			else
@@ -577,7 +581,7 @@ module c3demo_raspi_interface #(
 	always @(posedge raspi_clk) begin
 		if (raspi_din[8])
 			raspi_din_ep <= raspi_din[7:0];
-		if (!raspi_send_empty && !raspi_dir)
+		if (raspi_send_nempty && !raspi_dir)
 			raspi_dout_ep <= raspi_send_data[15:8];
 	end
 
@@ -591,12 +595,12 @@ module c3demo_raspi_interface #(
 		.in_clk(raspi_clk),
 		.in_shift(raspi_dir && (!raspi_din[8] || &raspi_din)),
 		.in_data(&raspi_din ? 16'h ffff : {raspi_din_ep, raspi_din[7:0]}),
-		.in_empty(raspi_recv_empty),
+		.in_nempty(raspi_recv_nempty),
 
 		.out_clk(clk),
 		.out_pop(|(recv_valid & recv_ready) || sync || skip),
 		.out_data({recv_epnum, recv_tdata}),
-		.out_empty(recv_empty)
+		.out_nempty(recv_nempty)
 	), fifo_send (
 		.in_clk(clk),
 		.in_shift(|(send_valid & send_ready)),
@@ -606,6 +610,6 @@ module c3demo_raspi_interface #(
 		.out_clk(raspi_clk),
 		.out_pop((raspi_dout_ep == raspi_send_data[15:8]) && !raspi_dir),
 		.out_data(raspi_send_data),
-		.out_empty(raspi_send_empty)
+		.out_nempty(raspi_send_nempty)
 	);
 endmodule
