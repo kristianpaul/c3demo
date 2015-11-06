@@ -157,22 +157,22 @@ module c3demo (
 	reg prog_mem_active = 0;
 	reg prog_mem_reset = 0;
 
-	// always @(posedge clk) begin
-	// 	if (recv_sync) begin
-	// 		prog_mem_addr <= ~0;
-	// 		prog_mem_data <= 0;
-	// 		prog_mem_state <= 0;
-	// 		prog_mem_active <= 0;
-	// 		prog_mem_reset <= 0;
-	// 	end else
-	// 	if (recv_ep1_valid) begin
-	// 		prog_mem_addr <= prog_mem_addr + &prog_mem_state;
-	// 		prog_mem_data <= {recv_ep1_data, prog_mem_data[31:8]};
-	// 		prog_mem_state <= prog_mem_state + 1;
-	// 		prog_mem_active <= &prog_mem_state;
-	// 		prog_mem_reset <= 1;
-	// 	end
-	// end
+	always @(posedge clk) begin
+		if (recv_sync) begin
+			prog_mem_addr <= ~0;
+			prog_mem_data <= 0;
+			prog_mem_state <= 0;
+			prog_mem_active <= 0;
+			prog_mem_reset <= 0;
+		end else
+		if (recv_ep1_valid) begin
+			prog_mem_addr <= prog_mem_addr + &prog_mem_state;
+			prog_mem_data <= {recv_ep1_data, prog_mem_data[31:8]};
+			prog_mem_state <= prog_mem_state + 1;
+			prog_mem_active <= &prog_mem_state;
+			prog_mem_reset <= 1;
+		end
+	end
 
 
 	// -------------------------------
@@ -217,7 +217,7 @@ module c3demo (
 	reg mem_ready;
 	reg [31:0] mem_rdata;
 
-	wire resetn_picorv32 = resetn; // && !prog_mem_reset;
+	wire resetn_picorv32 = resetn && !prog_mem_reset;
 
 	picorv32 #(
 		// .ENABLE_COUNTERS(1),
@@ -254,9 +254,9 @@ module c3demo (
 			DEBUG0 <= 0;
 			DEBUG1 <= 0;
 
-			// if (prog_mem_active) begin
-			// 	memory[prog_mem_addr] <= prog_mem_data;
-			// end
+			if (prog_mem_active) begin
+				memory[prog_mem_addr] <= prog_mem_data;
+			end
 		end else
 		if (mem_valid && !mem_ready) begin
 			(* parallel_case *)
@@ -338,7 +338,7 @@ module c3demo_clkgen (
 		divided_clock <= divided_clock + 1;
 
 	SB_GB clock_buffer (
-		.USER_SIGNAL_TO_GLOBAL_BUFFER(divided_clock[0]),
+		.USER_SIGNAL_TO_GLOBAL_BUFFER(divided_clock[1]),
 		.GLOBAL_BUFFER_OUTPUT(clk)
 	);
 
