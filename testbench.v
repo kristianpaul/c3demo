@@ -11,9 +11,7 @@ module testbench;
 		#5; forever #5 clk = !clk;
 	end
 
-	c3demo #(
-		.USE_PLL(0)
-	) uut (
+	c3demo uut (
 		.CLK12MHZ(clk),
 		.RASPI_11(raspi_dat[8]),
 		.RASPI_12(raspi_dat[7]),
@@ -29,6 +27,7 @@ module testbench;
 	);
 
 	integer f;
+	reg [8:0] a, b, c;
 	reg [31:0] fw;
 
 	task raspi_send;
@@ -36,14 +35,52 @@ module testbench;
 		begin
 			raspi_dir <= 1;
 			raspi_dout <= word;
-			#50 raspi_clk <= 1;
-			#50 raspi_clk <= 0;
+			#50;
+			raspi_clk <= 1;
+			#50;
+			raspi_clk <= 0;
+		end
+	endtask
+
+	task raspi_recv;
+		output [8:0] word;
+		begin
+			raspi_dir <= 0;
+			raspi_dout <= 'bz;
+			#50;
+			word <= raspi_dat;
+			raspi_clk <= 1;
+			#50;
+			raspi_clk <= 0;
 		end
 	endtask
 
 	initial begin
+		repeat (100)
+			@(posedge clk);
+
+		repeat (8)
+			raspi_send(9'h 1ff);
+
+		repeat (100)
+			@(posedge clk);
+
+		raspi_send(9'h 100);
+
+		for (a = 64; a < 128; a = a+1)
+			raspi_send(a);
+
+		for (a = 64; a < 128; a = a+1) begin
+			raspi_recv(b);
+			c =  (((a << 5) + a) ^ 7) & 255;
+			$display("Link test: %x -> %x (expected: %x, %0s)", a, b, c, b === c ? "ok" : "ERROR");
+			if (b !== c) $finish;
+		end
+
 		repeat (1000)
 			@(posedge clk);
+
+		raspi_send(9'h 1ff);
 
 		f = $fopen("firmware.hex", "r");
 		raspi_send(9'h 101);
@@ -55,13 +92,18 @@ module testbench;
 			raspi_send(fw[31:24]);
 		end
 
-		raspi_send(9'h 100);
 		$fclose(f);
+
+		repeat (8)
+			raspi_send(9'h 1ff);
 	end
 
 	initial begin
 		$dumpfile("testbench.vcd");
 		$dumpvars(0, testbench);
+
+		repeat (10000) @(posedge clk);
+
 		for (k = 0; k < 10; k = k+1) begin
 			$write("%3d:", k);
 			for (i = 0; i < 30; i = i+1) begin

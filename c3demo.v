@@ -26,160 +26,152 @@ module c3demo (
 	// 128 32bit words = 512 bytes memory
 	parameter MEM_SIZE = 2048;
 
-	// set to 0 for simulation
-	parameter USE_PLL = 1;
-
 
 	// -------------------------------
 	// PLL
 
 	wire clk;
+	wire resetn;
 
-	// always @* DEBUG0 = clk;
-	// always @* DEBUG1 = CLK12MHZ;
-
-	generate if (USE_PLL) begin
-		// wire [7:0] DYNAMICDELAY = 0;
-		// wire PLLOUTCORE, EXTFEEDBACK = 0, LATCHINPUTVALUE = 0;
-		// SB_PLL40_CORE #(
-		// 	.FEEDBACK_PATH("SIMPLE"),
-		// 	.DELAY_ADJUSTMENT_MODE_FEEDBACK("FIXED"),
-		// 	.DELAY_ADJUSTMENT_MODE_RELATIVE("FIXED"),
-		// 	.PLLOUT_SELECT("GENCLK"),
-		// 	.FDA_FEEDBACK(0),
-		// 	.FDA_RELATIVE(0),
-		// 	.DIVR(10),
-		// 	.DIVF(0),
-		// 	.DIVQ(1),
-		// 	.FILTER_RANGE(0),
-		// 	.ENABLE_ICEGATE(0),
-		// 	.TEST_MODE(0)
-		// ) uut (
-		// 	.REFERENCECLK   (CLK12MHZ       ),
-		// 	.PLLOUTGLOBAL   (clk            ),
-		// 	.LOCK           (pll_lock       ),
-		// 	.BYPASS         (1'b0           ),
-		// 	.RESETB         (1'b1           ),
-
-		// 	.PLLOUTCORE     (PLLOUTCORE     ),
-		// 	.EXTFEEDBACK    (EXTFEEDBACK    ),
-		// 	.DYNAMICDELAY   (DYNAMICDELAY   ),
-		// 	.LATCHINPUTVALUE(LATCHINPUTVALUE)
-		// );
-
-		reg [7:0] divided_clock;
-		always @(posedge CLK12MHZ)
-			divided_clock <= divided_clock + 1;
-
-		// SB_GB clock_buffer (
-		// 	.USER_SIGNAL_TO_GLOBAL_BUFFER(divided_clock[0]),
-		// 	.GLOBAL_BUFFER_OUTPUT(clk)
-		// );
-
-		assign clk = divided_clock[1];
-	end else begin
-		assign pll_lock = 1, clk = CLK12MHZ;
-	end endgenerate
-
-
-	// -------------------------------
-	// RasPi Interface PINs
-
-	wire [8:0] raspi_din;
-	reg [8:0] raspi_dout;
-
-	wire raspi_dir = RASPI_38;
-	wire raspi_clk = RASPI_40;
-
-`ifdef TBUF
-	assign {RASPI_11, RASPI_12, RASPI_15, RASPI_16, RASPI_19, RASPI_21, RASPI_24, RASPI_35, RASPI_36} = raspi_dir ? 9'bz : raspi_dout;
-	assign raspi_din = {RASPI_11, RASPI_12, RASPI_15, RASPI_16, RASPI_19, RASPI_21, RASPI_24, RASPI_35, RASPI_36};
-`else
-	SB_IO #(
-		.PIN_TYPE(6'b 1010_01),
-		.PULLUP(1'b 0)
-	) raspi_io [8:0] (
-		.PACKAGE_PIN({RASPI_11, RASPI_12, RASPI_15, RASPI_16, RASPI_19, RASPI_21, RASPI_24, RASPI_35, RASPI_36}),
-		.OUTPUT_ENABLE(!raspi_dir),
-		.D_OUT_0(raspi_dout),
-		.D_IN_0(raspi_din)
+	c3demo_clkgen clkgen (
+		.CLK12MHZ(CLK12MHZ),
+		.clk(clk),
+		.resetn(resetn)
 	);
-`endif
 
 
 	// -------------------------------
-	// RasPi Interface Controller
+	// RasPi Interface
 
-	reg raspi_xfer_r = 0;
-	reg raspi_xfer_d;
-	reg raspi_xfer_q;
-	reg raspi_xfer;
+	wire recv_sync;
 
-	reg raspi_xfer_dir;
-	reg [8:0] raspi_xfer_din;
+	// recv ep0: transmission test
+	wire recv_ep0_valid;
+	wire recv_ep0_ready;
+	wire [7:0] recv_ep0_data;
 
-	always @(posedge raspi_clk) begin
-		raspi_xfer_din <= raspi_din;
-		raspi_xfer_dir <= raspi_dir;
-	end
+	// recv ep1: firmware upload
+	wire recv_ep1_valid;
+	wire recv_ep1_ready = 1;
+	wire [7:0] recv_ep1_data = recv_ep0_data;
 
-	always @(negedge raspi_clk) begin
-		raspi_xfer_r <= !raspi_xfer_r;
-	end
+	// recv ep2: unused
+	wire recv_ep2_valid;
+	wire recv_ep2_ready = 1;
+	wire [7:0] recv_ep2_data = recv_ep0_data;
 
-	// clock domain crossing
+	// recv ep3: unused
+	wire recv_ep3_valid;
+	wire recv_ep3_ready = 1;
+	wire [7:0] recv_ep3_data = recv_ep0_data;
+
+	// send ep0: transmission test
+	wire send_ep0_valid;
+	wire send_ep0_ready;
+	wire [7:0] send_ep0_data;
+
+	// send ep1: unused
+	wire send_ep1_valid = 0;
+	wire send_ep1_ready;
+	wire [7:0] send_ep1_data;
+
+	// send ep2: unused
+	wire send_ep2_valid = 0;
+	wire send_ep2_ready;
+	wire [7:0] send_ep2_data;
+
+	// send ep3: unused
+	wire send_ep3_valid = 0;
+	wire send_ep3_ready;
+	wire [7:0] send_ep3_data;
+
+	c3demo_raspi_interface #(
+		.NUM_EP(4)
+	) raspi_interface (
+		.clk(clk),
+		.sync(recv_sync),
+
+		.recv_valid({
+			recv_ep3_valid,
+			recv_ep2_valid,
+			recv_ep1_valid,
+			recv_ep0_valid
+		}),
+		.recv_ready({
+			recv_ep3_ready,
+			recv_ep2_ready,
+			recv_ep1_ready,
+			recv_ep0_ready
+		}),
+		.recv_tdata(
+			recv_ep0_data
+		),
+
+		.send_valid({
+			send_ep3_valid,
+			send_ep2_valid,
+			send_ep1_valid,
+			send_ep0_valid
+		}),
+		.send_ready({
+			send_ep3_ready,
+			send_ep2_ready,
+			send_ep1_ready,
+			send_ep0_ready
+		}),
+		.send_tdata(
+			(send_ep3_data & {8{send_ep3_valid && send_ep3_ready}}) |
+			(send_ep2_data & {8{send_ep2_valid && send_ep2_ready}}) |
+			(send_ep1_data & {8{send_ep1_valid && send_ep1_ready}}) |
+			(send_ep0_data & {8{send_ep0_valid && send_ep0_ready}})
+		),
+
+		.RASPI_11(RASPI_11),
+		.RASPI_12(RASPI_12),
+		.RASPI_15(RASPI_15),
+		.RASPI_16(RASPI_16),
+		.RASPI_19(RASPI_19),
+		.RASPI_21(RASPI_21),
+		.RASPI_24(RASPI_24),
+		.RASPI_35(RASPI_35),
+		.RASPI_36(RASPI_36),
+		.RASPI_38(RASPI_38),
+		.RASPI_40(RASPI_40)
+	);
+
+
+	// -------------------------------
+	// Transmission test (recv ep0, send ep0) 
+
+	assign send_ep0_data = ((recv_ep0_data << 5) + recv_ep0_data) ^ 7;
+	assign send_ep0_valid = recv_ep0_valid;
+	assign recv_ep0_ready = send_ep0_ready;
+	
+
+	// -------------------------------
+	// Firmware upload (recv ep1)
+
+	reg [15:0] prog_mem_addr;
+	reg [31:0] prog_mem_data;
+	reg [1:0] prog_mem_state;
+	reg prog_mem_active = 0;
+	reg prog_mem_reset = 0;
+
 	always @(posedge clk) begin
-		raspi_xfer_d <= raspi_xfer_r;
-		raspi_xfer_q <= raspi_xfer_d;
-		raspi_xfer <= raspi_xfer_q;
-	end
-
-	reg [15:0] raspi_mem_addr;
-	reg [31:0] raspi_mem_data;
-	reg [1:0] raspi_mem_state;
-	reg raspi_mem_active;
-
-	reg [3:0] raspi_mode = 0;
-	reg raspi_last_xfer = 0;
-
-	always @(posedge clk) begin
-		raspi_last_xfer <= raspi_xfer;
-		raspi_mem_active <= 0;
-
-		if (raspi_last_xfer != raspi_xfer) begin
-			if (raspi_xfer_dir && raspi_xfer_din[8]) begin
-				raspi_mode <= raspi_xfer_din;
-				raspi_mem_addr <= ~0;
-				raspi_mem_data <= 0;
-				raspi_mem_state <= 0;
-				raspi_dout <= 0;
-			end else
-			case (raspi_mode)
-				0: begin
-					raspi_dout <= ((raspi_xfer_din << 5) + raspi_xfer_din) ^ 7;
-				end
-				1: begin
-					raspi_mem_addr <= raspi_mem_addr + &raspi_mem_state;
-					raspi_mem_data <= {raspi_xfer_din[7:0], raspi_mem_data[31:8]};
-					raspi_mem_state <= raspi_mem_state + 1;
-					raspi_mem_active <= &raspi_mem_state;
-				end
-			endcase
+		if (recv_sync) begin
+			prog_mem_addr <= ~0;
+			prog_mem_data <= 0;
+			prog_mem_state <= 0;
+			prog_mem_active <= 0;
+			prog_mem_reset <= 0;
+		end else
+		if (recv_ep1_valid) begin
+			prog_mem_addr <= prog_mem_addr + &prog_mem_state;
+			prog_mem_data <= {recv_ep1_data, prog_mem_data[31:8]};
+			prog_mem_state <= prog_mem_state + 1;
+			prog_mem_active <= &prog_mem_state;
+			prog_mem_reset <= 1;
 		end
-	end
-
-
-	// -------------------------------
-	// Reset Generator
-
-	reg [7:0] resetn_counter = 0;
-	wire resetn = &resetn_counter;
-
-	always @(posedge clk) begin
-		if (!resetn)
-			resetn_counter <= resetn_counter + 1;
-		if (raspi_mode == 1)
-			resetn_counter <= 0;
 	end
 
 
@@ -225,6 +217,8 @@ module c3demo (
 	reg mem_ready;
 	reg [31:0] mem_rdata;
 
+	wire resetn_picorv32 = resetn && !prog_mem_reset;
+
 	picorv32 #(
 		// .ENABLE_COUNTERS(1),
 		// .LATCHED_MEM_RDATA(1),
@@ -233,14 +227,14 @@ module c3demo (
 		// .CATCH_MISALIGN(0),
 		// .CATCH_ILLINSN(0)
 	) cpu (
-		.clk      (clk      ),
-		.resetn   (resetn   ),
-		.mem_valid(mem_valid),
-		.mem_ready(mem_ready),
-		.mem_addr (mem_addr ),
-		.mem_wdata(mem_wdata),
-		.mem_wstrb(mem_wstrb),
-		.mem_rdata(mem_rdata)
+		.clk       (clk            ),
+		.resetn    (resetn_picorv32),
+		.mem_valid (mem_valid      ),
+		.mem_ready (mem_ready      ),
+		.mem_addr  (mem_addr       ),
+		.mem_wdata (mem_wdata      ),
+		.mem_wstrb (mem_wstrb      ),
+		.mem_rdata (mem_rdata      )
 	);
 
 
@@ -253,15 +247,15 @@ module c3demo (
 	always @(posedge clk) begin
 		mem_ready <= 0;
 		led_wr_enable <= 0;
-		if (!resetn) begin
+		if (!resetn_picorv32) begin
 			LED1 <= 0;
 			LED2 <= 0;
 			LED3 <= 0;
 			DEBUG0 <= 0;
 			DEBUG1 <= 0;
 
-			if (raspi_mem_active) begin
-				memory[raspi_mem_addr] <= raspi_mem_data;
+			if (prog_mem_active) begin
+				memory[prog_mem_addr] <= prog_mem_data;
 			end
 		end else
 		if (mem_valid && !mem_ready) begin
@@ -299,4 +293,319 @@ module c3demo (
 			endcase
 		end
 	end
+endmodule
+
+// ======================================================================
+
+module c3demo_clkgen (
+	input CLK12MHZ,
+	output clk,
+	output resetn
+);
+	// PLLs are not working on alpha board 
+	// -----------------------------------
+	//
+	// wire [7:0] DYNAMICDELAY = 0;
+	// wire PLLOUTCORE, EXTFEEDBACK = 0, LATCHINPUTVALUE = 0;
+	// SB_PLL40_CORE #(
+	// 	.FEEDBACK_PATH("SIMPLE"),
+	// 	.DELAY_ADJUSTMENT_MODE_FEEDBACK("FIXED"),
+	// 	.DELAY_ADJUSTMENT_MODE_RELATIVE("FIXED"),
+	// 	.PLLOUT_SELECT("GENCLK"),
+	// 	.FDA_FEEDBACK(0),
+	// 	.FDA_RELATIVE(0),
+	// 	.DIVR(10),
+	// 	.DIVF(0),
+	// 	.DIVQ(1),
+	// 	.FILTER_RANGE(0),
+	// 	.ENABLE_ICEGATE(0),
+	// 	.TEST_MODE(0)
+	// ) uut (
+	// 	.REFERENCECLK   (CLK12MHZ       ),
+	// 	.PLLOUTGLOBAL   (clk            ),
+	// 	.LOCK           (pll_lock       ),
+	// 	.BYPASS         (1'b0           ),
+	// 	.RESETB         (1'b1           ),
+	// 	.PLLOUTCORE     (PLLOUTCORE     ),
+	// 	.EXTFEEDBACK    (EXTFEEDBACK    ),
+	// 	.DYNAMICDELAY   (DYNAMICDELAY   ),
+	// 	.LATCHINPUTVALUE(LATCHINPUTVALUE)
+	// );
+
+	reg [7:0] divided_clock = 0;
+
+	always @(posedge CLK12MHZ)
+		divided_clock <= divided_clock + 1;
+
+	SB_GB clock_buffer (
+		.USER_SIGNAL_TO_GLOBAL_BUFFER(divided_clock[0]),
+		.GLOBAL_BUFFER_OUTPUT(clk)
+	);
+
+	// -------------------------------
+	// Reset Generator
+
+	reg [7:0] resetn_counter = 0;
+	wire resetn = &resetn_counter;
+
+	always @(posedge clk) begin
+		if (!resetn)
+			resetn_counter <= resetn_counter + 1;
+	end
+endmodule
+
+// ======================================================================
+
+module c3demo_crossclkfifo #(
+	parameter WIDTH = 8,
+	parameter DEPTH = 16
+) (
+	input                  in_clk,
+	input                  in_shift,
+	input      [WIDTH-1:0] in_data,
+	output reg             in_full,
+	output reg             in_empty,
+
+	input                  out_clk,
+	input                  out_pop,
+	output reg [WIDTH-1:0] out_data,
+	output reg             out_empty
+);
+	localparam integer ABITS = $clog2(DEPTH);
+
+	function [ABITS-1:0] bin2gray(input [ABITS-1:0] in);
+		integer i;
+		reg [ABITS:0] temp;
+		begin
+			temp = in;
+			for (i=0; i<ABITS; i=i+1)
+				bin2gray[i] = ^temp[i +: 2];
+		end
+	endfunction
+
+	function [ABITS-1:0] gray2bin(input [ABITS-1:0] in);
+		integer i;
+		begin
+			for (i=0; i<ABITS; i=i+1)
+				gray2bin[i] = ^(in >> i);
+		end
+	endfunction
+
+	reg [WIDTH-1:0] memory [0:DEPTH-1];
+
+	reg [ABITS-1:0] in_ipos = 0, in_opos;
+	reg [ABITS-1:0] out_opos = 0, out_ipos;
+
+
+	// input side of fifo
+
+	wire [ABITS-1:0] next_ipos = in_ipos == DEPTH-1 ? 0 : in_ipos + 1;
+	wire [ABITS-1:0] next_next_ipos = next_ipos == DEPTH-1 ? 0 : next_ipos + 1;
+
+	always @(posedge in_clk) begin
+		if (in_shift && !in_full) begin
+			memory[in_ipos] <= in_data;
+			in_full <= next_next_ipos == in_opos;
+			in_empty <= 0;
+			in_ipos <= next_ipos;
+		end else begin
+			in_full <= next_ipos == in_opos;
+			in_empty <= in_ipos == in_opos;
+		end
+	end
+
+
+	// output side of fifo
+
+	wire [ABITS-1:0] next_opos = out_opos == DEPTH-1 ? 0 : out_opos + 1;
+
+	always @(posedge out_clk) begin
+		if (out_pop && !out_empty) begin
+			out_data <= memory[next_opos];
+			out_empty <= next_opos == out_ipos;
+			out_opos <= next_opos;
+		end else begin
+			out_data <= memory[out_opos];
+			out_empty <= out_opos == out_ipos;
+		end
+	end
+
+
+	// clock domain crossing of ipos
+
+	reg [ABITS-1:0] in_ipos_gray;
+	reg [ABITS-1:0] out_ipos_gray_2;
+	reg [ABITS-1:0] out_ipos_gray_1;
+	reg [ABITS-1:0] out_ipos_gray_0;
+
+	always @(posedge in_clk) begin
+		in_ipos_gray <= bin2gray(in_ipos);
+	end
+
+	always @(posedge out_clk) begin
+		out_ipos_gray_2 <= in_ipos_gray;
+		out_ipos_gray_1 <= out_ipos_gray_2;
+		out_ipos_gray_0 <= out_ipos_gray_1;
+		out_ipos <= gray2bin(out_ipos_gray_0);
+	end
+
+
+	// clock domain crossing of opos
+
+	reg [ABITS-1:0] out_opos_gray;
+	reg [ABITS-1:0] in_opos_gray_2;
+	reg [ABITS-1:0] in_opos_gray_1;
+	reg [ABITS-1:0] in_opos_gray_0;
+
+	always @(posedge out_clk) begin
+		out_opos_gray <= bin2gray(out_opos);
+	end
+
+	always @(posedge in_clk) begin
+		in_opos_gray_2 <= out_opos_gray;
+		in_opos_gray_1 <= in_opos_gray_2;
+		in_opos_gray_0 <= in_opos_gray_1;
+		in_opos <= gray2bin(in_opos_gray_0);
+	end
+endmodule
+
+// ======================================================================
+
+module c3demo_raspi_interface #(
+	// number of communication endpoints
+	parameter NUM_EP = 4
+) (
+	input clk,
+	output sync,
+
+	output [NUM_EP-1:0] recv_valid,
+	input  [NUM_EP-1:0] recv_ready,
+	output [       7:0] recv_tdata,
+
+	input  [NUM_EP-1:0] send_valid,
+	output [NUM_EP-1:0] send_ready,
+	input  [       7:0] send_tdata,
+
+	// RasPi Interface: 9 Data Lines (cmds have MSB set)
+	inout RASPI_11, RASPI_12, RASPI_15, RASPI_16, RASPI_19, RASPI_21, RASPI_24, RASPI_35, RASPI_36,
+
+	// RasPi Interface: Control Lines
+	input RASPI_38, RASPI_40
+);
+	// All signals with "raspi_" prefix are in the "raspi_clk" clock domain.
+	// All other signals are in the "clk" clock domain.
+
+	wire [8:0] raspi_din;
+	reg [8:0] raspi_dout;
+
+	wire raspi_dir = RASPI_38;
+	wire raspi_clk;
+
+	SB_GB raspi_clock_buffer (
+		.USER_SIGNAL_TO_GLOBAL_BUFFER(RASPI_40),
+		.GLOBAL_BUFFER_OUTPUT(raspi_clk)
+	);
+
+`ifdef SIMULATION
+	assign {RASPI_11, RASPI_12, RASPI_15, RASPI_16, RASPI_19, RASPI_21, RASPI_24, RASPI_35, RASPI_36} = raspi_dir ? 9'bz : raspi_dout;
+	assign raspi_din = {RASPI_11, RASPI_12, RASPI_15, RASPI_16, RASPI_19, RASPI_21, RASPI_24, RASPI_35, RASPI_36};
+`else
+	SB_IO #(
+		.PIN_TYPE(6'b 1010_01),
+		.PULLUP(1'b 0)
+	) raspi_io [8:0] (
+		.PACKAGE_PIN({RASPI_11, RASPI_12, RASPI_15, RASPI_16, RASPI_19, RASPI_21, RASPI_24, RASPI_35, RASPI_36}),
+		.OUTPUT_ENABLE(!raspi_dir),
+		.D_OUT_0(raspi_dout),
+		.D_IN_0(raspi_din)
+	);
+`endif
+
+
+	// system clock side
+
+	function [NUM_EP-1:0] highest_bit;
+		input [NUM_EP-1:0] bits;
+		integer i;
+		begin
+			highest_bit = 0;
+			for (i = 0; i < NUM_EP; i = i+1)
+				if (bits[i]) highest_bit = 1 << i;
+		end
+	endfunction
+
+	function [7:0] highest_bit_index;
+		input [NUM_EP-1:0] bits;
+		integer i;
+		begin
+			highest_bit_index = 0;
+			for (i = 0; i < NUM_EP; i = i+1)
+				if (bits[i]) highest_bit_index = i;
+		end
+	endfunction
+
+	wire [7:0] recv_epnum, send_epnum;
+	wire recv_empty, send_full;
+
+	assign recv_valid = recv_empty ? 0 : 1 << recv_epnum;
+	assign send_ready = highest_bit(send_valid) & {NUM_EP{!send_full}};
+	assign send_epnum = highest_bit_index(send_valid);
+
+	assign sync = &recv_epnum && &recv_tdata && !recv_empty;
+	wire skip = !recv_valid && !recv_empty;
+
+
+	// raspi side
+
+	reg [7:0] raspi_din_ep;
+	reg [7:0] raspi_dout_ep = 0;
+	wire raspi_recv_empty;
+
+	wire [15:0] raspi_send_data;
+	wire raspi_send_empty;
+
+	always @* begin
+		raspi_dout = raspi_recv_empty ? 9'h 1ff : 9'h 1fe;
+		if (!raspi_send_empty) begin
+			if (raspi_dout_ep != raspi_send_data[15:8])
+				raspi_dout = {1'b1, raspi_send_data[15:8]};
+			else
+				raspi_dout = {1'b0, raspi_send_data[ 7:0]};
+		end
+	end
+
+	always @(posedge raspi_clk) begin
+		if (raspi_din[8])
+			raspi_din_ep <= raspi_din[7:0];
+		if (!raspi_send_empty && !raspi_dir)
+			raspi_dout_ep <= raspi_send_data[15:8];
+	end
+
+
+	// fifos
+
+	c3demo_crossclkfifo #(
+		.WIDTH(16),
+		.DEPTH(256)
+	) fifo_recv (
+		.in_clk(raspi_clk),
+		.in_shift(raspi_dir && (!raspi_din[8] || &raspi_din)),
+		.in_data(&raspi_din ? 16'h ffff : {raspi_din_ep, raspi_din[7:0]}),
+		.in_empty(raspi_recv_empty),
+
+		.out_clk(clk),
+		.out_pop(|(recv_valid & recv_ready) || sync || skip),
+		.out_data({recv_epnum, recv_tdata}),
+		.out_empty(recv_empty)
+	), fifo_send (
+		.in_clk(clk),
+		.in_shift(|(send_valid & send_ready)),
+		.in_data({send_epnum, send_tdata}),
+		.in_full(send_full),
+
+		.out_clk(raspi_clk),
+		.out_pop((raspi_dout_ep == raspi_send_data[15:8]) && !raspi_dir),
+		.out_data(raspi_send_data),
+		.out_empty(raspi_send_empty)
+	);
 endmodule
