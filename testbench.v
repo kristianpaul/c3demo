@@ -35,9 +35,9 @@ module testbench;
 		begin
 			raspi_dir <= 1;
 			raspi_dout <= word;
-			#50;
+			#500;
 			raspi_clk <= 1;
-			#50;
+			#500;
 			raspi_clk <= 0;
 		end
 	endtask
@@ -47,10 +47,10 @@ module testbench;
 		begin
 			raspi_dir <= 0;
 			raspi_dout <= 'bz;
-			#50;
+			#500;
 			word <= raspi_dat;
 			raspi_clk <= 1;
-			#50;
+			#500;
 			raspi_clk <= 0;
 		end
 	endtask
@@ -59,11 +59,12 @@ module testbench;
 		repeat (100)
 			@(posedge clk);
 
-		repeat (8)
+		repeat (32)
 			raspi_send(9'h 1ff);
 
-		repeat (100)
-			@(posedge clk);
+		b = 0;
+		while (b != 9'h 1ff)
+			raspi_recv(b);
 
 		raspi_send(9'h 100);
 
@@ -102,7 +103,7 @@ module testbench;
 		$dumpfile("testbench.vcd");
 		$dumpvars(0, testbench);
 
-		repeat (10000) @(posedge clk);
+		repeat (20000) @(posedge clk);
 
 		for (k = 0; k < 10; k = k+1) begin
 			$write("%3d:", k);
