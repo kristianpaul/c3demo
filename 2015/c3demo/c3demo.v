@@ -8,6 +8,14 @@
 // PANEL_[RGB]0 ... color channel for top half
 // PANEL_[RGB]1 ... color channel for bottom half
 
+
+// Synplify Pro is not comfortable inferring iCE40 4K brams for
+// clock domain crossing FIFOs. Yosys does not have this issue.
+`define BEHAVIORAL_FIFO_MODEL
+
+// Divide the 12 MHz by this power of two: 0=12MHz, 1=6MHz, 2=3MHz, ..
+`define POW2CLOCKDIV 1
+
 module c3demo (
 	input CLK12MHZ,
 	output reg DEBUG0, DEBUG1, LED1, LED2, LED3,
@@ -25,6 +33,10 @@ module c3demo (
 	// 2048 32bit words = 8k bytes memory
 	// 128 32bit words = 512 bytes memory
 	parameter MEM_SIZE = 2048;
+
+	// wire dgb0, dbg1;
+	// always @* DEBUG0 = dbg0;
+	// always @* DEBUG1 = dbg1;
 
 
 	// -------------------------------
@@ -219,14 +231,7 @@ module c3demo (
 
 	wire resetn_picorv32 = resetn && !prog_mem_reset;
 
-	picorv32 #(
-		// .ENABLE_COUNTERS(1),
-		// .LATCHED_MEM_RDATA(1),
-		// .TWO_STAGE_SHIFT(1),
-		// .TWO_CYCLE_ALU(1),
-		// .CATCH_MISALIGN(0),
-		// .CATCH_ILLINSN(0)
-	) cpu (
+	picorv32 cpu (
 		.clk       (clk            ),
 		.resetn    (resetn_picorv32),
 		.mem_valid (mem_valid      ),
@@ -333,12 +338,16 @@ module c3demo_clkgen (
 	// );
 
 	reg [7:0] divided_clock = 0;
+	always @* divided_clock[0] = CLK12MHZ;
 
-	always @(posedge CLK12MHZ)
-		divided_clock <= divided_clock + 1;
+	genvar i;
+	generate for (i = 1; i < 8; i = i+1) begin
+		always @(posedge divided_clock[i-1])
+			divided_clock[i] <= !divided_clock[i];
+	end endgenerate
 
 	SB_GB clock_buffer (
-		.USER_SIGNAL_TO_GLOBAL_BUFFER(divided_clock[1]),
+		.USER_SIGNAL_TO_GLOBAL_BUFFER(divided_clock[`POW2CLOCKDIV]),
 		.GLOBAL_BUFFER_OUTPUT(clk)
 	);
 
@@ -346,7 +355,7 @@ module c3demo_clkgen (
 	// Reset Generator
 
 	reg [7:0] resetn_counter = 0;
-	wire resetn = &resetn_counter;
+	assign resetn = &resetn_counter;
 
 	always @(posedge clk) begin
 		if (!resetn)
@@ -397,11 +406,15 @@ module c3demo_crossclkfifo #(
 		end
 	endfunction
 
-	reg [WIDTH-1:0] memory [0:DEPTH-1];
-
 	reg [ABITS-1:0] in_ipos = 0, in_opos = 0;
 	reg [ABITS-1:0] out_opos = 0, out_ipos = 0;
 
+
+`ifdef BEHAVIORAL_FIFO_MODEL
+
+	// Behavioral model for the clock domain crossing fifo
+
+	reg [WIDTH-1:0] memory [0:DEPTH-1];
 
 	// input side of fifo
 
@@ -420,7 +433,6 @@ module c3demo_crossclkfifo #(
 		end
 	end
 
-
 	// output side of fifo
 
 	wire [ABITS-1:0] next_opos = out_opos == DEPTH-1 ? 0 : out_opos + 1;
@@ -438,6 +450,87 @@ module c3demo_crossclkfifo #(
 	end
 
 	assign out_data = out_nempty ? out_data_d : 0;
+
+`else /* BEHAVIORAL_FIFO_MODEL */
+
+	// Structural model for the clock domain crossing fifo
+
+	wire        memory_wclk  = in_clk;
+	wire        memory_wclke = 1;
+	wire        memory_we;
+	wire [10:0] memory_waddr;
+	wire [15:0] memory_mask  = 16'h 0000;
+	wire [15:0] memory_wdata;
+
+	wire [15:0] memory_rdata;
+	wire        memory_rclk  = out_clk;
+	wire        memory_rclke = 1;
+	wire        memory_re    = 1;
+	wire [10:0] memory_raddr;
+
+	SB_RAM40_4K #(
+		.WRITE_MODE(0),
+		.READ_MODE(0)
+	) memory (
+		.WCLK (memory_wclk ),
+		.WCLKE(memory_wclke),
+		.WE   (memory_we   ),
+		.WADDR(memory_waddr),
+		.MASK (memory_mask ),
+		.WDATA(memory_wdata),
+
+		.RDATA(memory_rdata),
+		.RCLK (memory_rclk ),
+		.RCLKE(memory_rclke),
+		.RE   (memory_re   ),
+		.RADDR(memory_raddr)
+	);
+
+	initial begin
+		if (WIDTH > 16 || DEPTH > 256) begin
+			$display("Fifo with width %d and depth %d does not fit into a SB_RAM40_4K!", WIDTH, DEPTH);
+			$finish;
+		end
+	end
+
+	// input side of fifo
+
+	wire [ABITS-1:0] next_ipos = in_ipos == DEPTH-1 ? 0 : in_ipos + 1;
+	wire [ABITS-1:0] next_next_ipos = next_ipos == DEPTH-1 ? 0 : next_ipos + 1;
+
+	always @(posedge in_clk) begin
+		if (in_shift && !in_full) begin
+			in_full <= next_next_ipos == in_opos;
+			in_nempty <= 1;
+			in_ipos <= next_ipos;
+		end else begin
+			in_full <= next_ipos == in_opos;
+			in_nempty <= in_ipos != in_opos;
+		end
+	end
+
+	assign memory_we = in_shift && !in_full;
+	assign memory_waddr = in_ipos;
+	assign memory_wdata = in_data;
+
+	// output side of fifo
+
+	wire [ABITS-1:0] next_opos = out_opos == DEPTH-1 ? 0 : out_opos + 1;
+	wire [WIDTH-1:0] out_data_d = memory_rdata;
+
+	always @(posedge out_clk) begin
+		if (out_pop && out_nempty) begin
+			out_nempty <= next_opos != out_ipos;
+			out_opos <= next_opos;
+		end else begin
+			out_nempty <= out_opos != out_ipos;
+		end
+	end
+
+	assign memory_raddr = (out_pop && out_nempty) ? next_opos : out_opos;
+	assign out_data = out_nempty ? out_data_d : 0;
+
+`endif /* BEHAVIORAL_FIFO_MODEL */
 
 
 	// clock domain crossing of ipos
@@ -554,9 +647,7 @@ module c3demo_raspi_interface #(
 	assign recv_valid = recv_nempty ? 1 << recv_epnum : 0;
 	assign send_ready = highest_bit(send_valid) & {NUM_EP{!send_full}};
 	assign send_epnum = highest_bit_index(send_valid);
-
 	assign sync = &recv_epnum && &recv_tdata && recv_nempty;
-	wire skip = !recv_valid && recv_nempty;
 
 
 	// raspi side
@@ -579,7 +670,7 @@ module c3demo_raspi_interface #(
 	end
 
 	always @(posedge raspi_clk) begin
-		if (raspi_din[8])
+		if (raspi_din[8] && raspi_dir)
 			raspi_din_ep <= raspi_din[7:0];
 		if (raspi_send_nempty && !raspi_dir)
 			raspi_dout_ep <= raspi_send_data[15:8];
@@ -598,7 +689,7 @@ module c3demo_raspi_interface #(
 		.in_nempty(raspi_recv_nempty),
 
 		.out_clk(clk),
-		.out_pop(|(recv_valid & recv_ready) || sync || skip),
+		.out_pop(|(recv_valid & recv_ready) || (recv_epnum >= NUM_EP)),
 		.out_data({recv_epnum, recv_tdata}),
 		.out_nempty(recv_nempty)
 	), fifo_send (
