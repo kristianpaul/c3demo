@@ -12,6 +12,8 @@ chmod -x firmware.bin
 
 python3 makehex.py firmware.bin 2048 > firmware.hex
 
+echo "Firmware size: $(grep .. firmware.hex | wc -l) / $(wc -l < firmware.hex)"
+
 if [ "$1" != nopush ]; then
-	ssh pi@raspi 'sudo ./icoprog/icoprog -w1' < firmware.bin
+	ssh pi@raspi 'icoprog -w1' < firmware.bin
 fi
