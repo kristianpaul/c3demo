@@ -1,19 +1,8 @@
-// Description of the LED panel:
-// http://bikerglen.com/projects/lighting/led-panel-1up/#The_LED_Panel
-//
-// PANEL_[ABCD] ... select rows (in pairs from top and bottom half)
-// PANEL_OE ....... display the selected rows (active low)
-// PANEL_CLK ...... serial clock for color data
-// PANEL_STB ...... latch shifted data (active high)
-// PANEL_[RGB]0 ... color channel for top half
-// PANEL_[RGB]1 ... color channel for bottom half
-
-
 // Synplify Pro is not comfortable inferring iCE40 4K brams for
 // clock domain crossing FIFOs. Yosys does not have this issue.
 `define BEHAVIORAL_FIFO_MODEL
 
-// Divide the 12 MHz by this power of two: 0=12MHz, 1=6MHz, 2=3MHz, ..
+// Divide the 12 MHz by this power of two: 0=12MHz, 1=6MHz, 2=3MHz, ...
 `define POW2CLOCKDIV 1
 
 module c3demo (
@@ -82,8 +71,8 @@ module c3demo (
 	wire send_ep0_ready;
 	wire [7:0] send_ep0_data;
 
-	// send ep1: unused
-	wire send_ep1_valid = 0;
+	// send ep1: debugger
+	wire send_ep1_valid;
 	wire send_ep1_ready;
 	wire [7:0] send_ep1_data;
 
@@ -97,8 +86,16 @@ module c3demo (
 	wire send_ep3_ready;
 	wire [7:0] send_ep3_data;
 
+	// trigger lines
+	wire trigger_0;  // debugger
+	wire trigger_1;  // unused
+	wire trigger_2;  // unused
+	wire trigger_3;  // unused
+
 	c3demo_raspi_interface #(
-		.NUM_EP(4)
+		.NUM_RECV_EP(4),
+		.NUM_SEND_EP(4),
+		.NUM_TRIGGERS(4)
 	) raspi_interface (
 		.clk(clk),
 		.sync(recv_sync),
@@ -137,6 +134,13 @@ module c3demo (
 			(send_ep1_data & {8{send_ep1_valid && send_ep1_ready}}) |
 			(send_ep0_data & {8{send_ep0_valid && send_ep0_ready}})
 		),
+
+		.trigger({
+			trigger_3,
+			trigger_2,
+			trigger_1,
+			trigger_0
+		}),
 
 		.RASPI_11(RASPI_11),
 		.RASPI_12(RASPI_12),
@@ -185,6 +189,33 @@ module c3demo (
 			prog_mem_reset <= 1;
 		end
 	end
+
+
+	// -------------------------------
+	// On-chip logic analyzer (send ep1, trig0)
+
+	(* keep *) wire debug_trigger;
+	(* keep *) wire [15:0] debug_data;
+
+	c3demo_debugger #(
+		.WIDTH(16),
+		.DEPTH(200),
+		.TRIGAT(50)
+	) debugger (
+		.clk(clk),
+		.resetn(resetn),
+
+		.trigger(debug_trigger),
+		.data(debug_data),
+
+		.dump_en(trigger_0),
+		.dump_valid(send_ep1_valid),
+		.dump_ready(send_ep1_ready),
+		.dump_data(send_ep1_data)
+	);
+
+	assign debug_trigger = PANEL_STB;
+	assign debug_data = {PANEL_R0, PANEL_G0, PANEL_B0, PANEL_R1, PANEL_G1, PANEL_B1, PANEL_A, PANEL_B, PANEL_C, PANEL_D, PANEL_CLK, PANEL_STB, PANEL_OE};
 
 
 	// -------------------------------
@@ -337,11 +368,11 @@ module c3demo_clkgen (
 	// 	.LATCHINPUTVALUE(LATCHINPUTVALUE)
 	// );
 
-	reg [7:0] divided_clock = 0;
+	reg [`POW2CLOCKDIV:0] divided_clock = 0;
 	always @* divided_clock[0] = CLK12MHZ;
 
 	genvar i;
-	generate for (i = 1; i < 8; i = i+1) begin
+	generate for (i = 1; i <= `POW2CLOCKDIV; i = i+1) begin
 		always @(posedge divided_clock[i-1])
 			divided_clock[i] <= !divided_clock[i];
 	end endgenerate
@@ -575,18 +606,22 @@ endmodule
 
 module c3demo_raspi_interface #(
 	// number of communication endpoints
-	parameter NUM_EP = 4
+	parameter NUM_RECV_EP = 4,
+	parameter NUM_SEND_EP = 4,
+	parameter NUM_TRIGGERS = 4
 ) (
 	input clk,
 	output sync,
 
-	output [NUM_EP-1:0] recv_valid,
-	input  [NUM_EP-1:0] recv_ready,
+	output [NUM_RECV_EP-1:0] recv_valid,
+	input  [NUM_RECV_EP-1:0] recv_ready,
 	output [       7:0] recv_tdata,
 
-	input  [NUM_EP-1:0] send_valid,
-	output [NUM_EP-1:0] send_ready,
+	input  [NUM_SEND_EP-1:0] send_valid,
+	output [NUM_SEND_EP-1:0] send_ready,
 	input  [       7:0] send_tdata,
+
+	output [NUM_TRIGGERS-1:0] trigger,
 
 	// RasPi Interface: 9 Data Lines (cmds have MSB set)
 	inout RASPI_11, RASPI_12, RASPI_15, RASPI_16, RASPI_19, RASPI_21, RASPI_24, RASPI_35, RASPI_36,
@@ -621,23 +656,23 @@ module c3demo_raspi_interface #(
 
 	// system clock side
 
-	function [NUM_EP-1:0] highest_bit;
-		input [NUM_EP-1:0] bits;
+	function [NUM_SEND_EP-1:0] highest_send_bit;
+		input [NUM_SEND_EP-1:0] bits;
 		integer i;
 		begin
-			highest_bit = 0;
-			for (i = 0; i < NUM_EP; i = i+1)
-				if (bits[i]) highest_bit = 1 << i;
+			highest_send_bit = 0;
+			for (i = 0; i < NUM_SEND_EP; i = i+1)
+				if (bits[i]) highest_send_bit = 1 << i;
 		end
 	endfunction
 
-	function [7:0] highest_bit_index;
-		input [NUM_EP-1:0] bits;
+	function [7:0] highest_send_bit_index;
+		input [NUM_SEND_EP-1:0] bits;
 		integer i;
 		begin
-			highest_bit_index = 0;
-			for (i = 0; i < NUM_EP; i = i+1)
-				if (bits[i]) highest_bit_index = i;
+			highest_send_bit_index = 0;
+			for (i = 0; i < NUM_SEND_EP; i = i+1)
+				if (bits[i]) highest_send_bit_index = i;
 		end
 	endfunction
 
@@ -645,9 +680,11 @@ module c3demo_raspi_interface #(
 	wire recv_nempty, send_full;
 
 	assign recv_valid = recv_nempty ? 1 << recv_epnum : 0;
-	assign send_ready = highest_bit(send_valid) & {NUM_EP{!send_full}};
-	assign send_epnum = highest_bit_index(send_valid);
+	assign send_ready = highest_send_bit(send_valid) & {NUM_SEND_EP{!send_full}};
+	assign send_epnum = highest_send_bit_index(send_valid);
+
 	assign sync = &recv_epnum && &recv_tdata && recv_nempty;
+	assign trigger = &recv_epnum && recv_nempty ? 1 << recv_tdata : 0;
 
 
 	// raspi side
@@ -672,8 +709,8 @@ module c3demo_raspi_interface #(
 	always @(posedge raspi_clk) begin
 		if (raspi_din[8] && raspi_dir)
 			raspi_din_ep <= raspi_din[7:0];
-		if (raspi_send_nempty && !raspi_dir)
-			raspi_dout_ep <= raspi_send_data[15:8];
+		if (!raspi_dir)
+			raspi_dout_ep <= raspi_send_nempty ? raspi_send_data[15:8] : raspi_dout;
 	end
 
 
@@ -684,12 +721,12 @@ module c3demo_raspi_interface #(
 		.DEPTH(256)
 	) fifo_recv (
 		.in_clk(raspi_clk),
-		.in_shift(raspi_dir && (!raspi_din[8] || &raspi_din)),
-		.in_data(&raspi_din ? 16'h ffff : {raspi_din_ep, raspi_din[7:0]}),
+		.in_shift(raspi_dir && !raspi_din[8]),
+		.in_data({raspi_din_ep, raspi_din[7:0]}),
 		.in_nempty(raspi_recv_nempty),
 
 		.out_clk(clk),
-		.out_pop(|(recv_valid & recv_ready) || (recv_epnum >= NUM_EP)),
+		.out_pop(|(recv_valid & recv_ready) || (recv_epnum >= NUM_RECV_EP)),
 		.out_data({recv_epnum, recv_tdata}),
 		.out_nempty(recv_nempty)
 	), fifo_send (
@@ -704,3 +741,88 @@ module c3demo_raspi_interface #(
 		.out_nempty(raspi_send_nempty)
 	);
 endmodule
+
+// ======================================================================
+
+module c3demo_debugger #(
+	parameter WIDTH = 32,
+	parameter DEPTH = 256,
+	parameter TRIGAT = 64
+) (
+	input clk,
+	input resetn,
+
+	input             trigger,
+	input [WIDTH-1:0] data,
+
+	input            dump_en,
+	output reg       dump_valid,
+	input            dump_ready,
+	output reg [7:0] dump_data
+);
+	localparam DEPTH_BITS = $clog2(DEPTH);
+
+	localparam BYTES = (WIDTH + 7) / 8;
+	localparam BYTES_BITS = $clog2(BYTES);
+
+	reg [WIDTH-1:0] memory [0:DEPTH-1];
+	reg [DEPTH_BITS-1:0] mem_pointer, stop_counter;
+	reg [BYTES_BITS-1:0] bytes_counter;
+
+	reg [1:0] state;
+	localparam state_running   = 0;
+	localparam state_triggered = 1;
+	localparam state_waitdump  = 2;
+	localparam state_dump      = 3;
+
+	always @(posedge clk)
+		dump_data <= memory[mem_pointer] >> (8*bytes_counter);
+
+	always @(posedge clk) begin
+		dump_valid <= 0;
+		if (!resetn) begin
+			mem_pointer <= 0;
+			state <= state_running;
+		end else
+		case (state)
+			state_running: begin
+				memory[mem_pointer] <= data;
+				mem_pointer <= mem_pointer == DEPTH-1 ? 0 : mem_pointer+1;
+				stop_counter <= DEPTH - TRIGAT;
+				if (trigger) begin
+					state <= state_triggered;
+				end
+			end
+			state_triggered: begin
+				memory[mem_pointer] <= data;
+				mem_pointer <= mem_pointer == DEPTH-1 ? 0 : mem_pointer+1;
+				stop_counter <= stop_counter - 1;
+				if (!stop_counter) begin
+					state <= state_waitdump;
+				end
+			end
+			state_waitdump: begin
+				if (dump_en)
+					state <= state_dump;
+				stop_counter <= DEPTH-1;
+				bytes_counter <= 0;
+			end
+			state_dump: begin
+				if (dump_valid && dump_ready) begin
+					if (bytes_counter == BYTES-1) begin
+						if (!stop_counter)
+							state <= state_running;
+						bytes_counter <= 0;
+						stop_counter <= stop_counter - 1;
+						mem_pointer <= mem_pointer == DEPTH-1 ? 0 : mem_pointer+1;
+					end else begin
+						bytes_counter <= bytes_counter + 1;
+					end
+				end else begin
+					dump_valid <= 1;
+				end
+			end
+		endcase
+	end
+endmodule
+
