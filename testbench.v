@@ -35,9 +35,9 @@ module testbench;
 		begin
 			raspi_dir <= 1;
 			raspi_dout <= word;
-			#500;
+			#20;
 			raspi_clk <= 1;
-			#500;
+			#20;
 			raspi_clk <= 0;
 		end
 	endtask
@@ -47,20 +47,23 @@ module testbench;
 		begin
 			raspi_dir <= 0;
 			raspi_dout <= 'bz;
-			#500;
+			#20;
 			word <= raspi_dat;
 			raspi_clk <= 1;
-			#500;
+			#20;
 			raspi_clk <= 0;
 		end
 	endtask
 
 	initial begin
+		$dumpfile("testbench.vcd");
+		$dumpvars(0, testbench);
+
 		repeat (100)
 			@(posedge clk);
 
-		repeat (32)
-			raspi_send(9'h 1ff);
+		raspi_send(9'h 1ff);
+		raspi_send(9'h 0ff);
 
 		b = 0;
 		while (b != 9'h 1ff)
@@ -71,6 +74,11 @@ module testbench;
 		for (a = 64; a < 128; a = a+1)
 			raspi_send(a);
 
+		c = 9'h 100;
+		raspi_recv(b);
+		$display("Link test: BEGIN  %x (expected: %x, %0s)", b, c, b === c ? "ok" : "ERROR");
+		if (b !== c) $finish;
+
 		for (a = 64; a < 128; a = a+1) begin
 			raspi_recv(b);
 			c =  (((a << 5) + a) ^ 7) & 255;
@@ -78,10 +86,18 @@ module testbench;
 			if (b !== c) $finish;
 		end
 
+		c = 9'h 1ff;
+		raspi_recv(b);
+		$display("Link test: END    %x (expected: %x, %0s)", b, c, b === c ? "ok" : "ERROR");
+		if (b !== c) $finish;
+
 		repeat (1000)
 			@(posedge clk);
 
+		$display("Uploading firmware..");
+
 		raspi_send(9'h 1ff);
+		raspi_send(9'h 0ff);
 
 		f = $fopen("firmware.hex", "r");
 		raspi_send(9'h 101);
@@ -95,15 +111,24 @@ module testbench;
 
 		$fclose(f);
 
-		repeat (8)
-			raspi_send(9'h 1ff);
-	end
+		raspi_send(9'h 1ff);
+		raspi_send(9'h 0ff);
 
-	initial begin
-		$dumpfile("testbench.vcd");
-		$dumpvars(0, testbench);
+		b = 0;
+		while (b != 9'h 1ff)
+			raspi_recv(b);
 
-		repeat (20000) @(posedge clk);
+		$display("Reading debugger..");
+
+		raspi_send(9'h 1ff);
+		raspi_send(9'h 000);
+
+		repeat (100)
+			raspi_recv(b);
+		while (b != 9'h 1ff)
+			raspi_recv(b);
+
+		$display("Running the system..");
 
 		for (k = 0; k < 10; k = k+1) begin
 			$write("%3d:", k);

@@ -13,6 +13,5 @@ chmod -x firmware.bin
 python3 makehex.py firmware.bin 2048 > firmware.hex
 
 if [ "$1" != nopush ]; then
-	scp firmware.bin pi@raspi:icoprog/
-	ssh pi@raspi 'set -ex && cd icoprog/ && sudo ./icoprog -1 < firmware.bin'
+	ssh pi@raspi 'sudo ./icoprog/icoprog -w1' < firmware.bin
 fi
