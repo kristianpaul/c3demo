@@ -767,6 +767,7 @@ module c3demo_debugger #(
 	input resetn,
 
 	input             trigger,
+	output            triggered,
 	input [WIDTH-1:0] data,
 
 	input            dump_en,
@@ -791,21 +792,27 @@ module c3demo_debugger #(
 
 	always @(posedge clk)
 		dump_data <= memory[mem_pointer] >> (8*bytes_counter);
+	
+	assign triggered = resetn && state != state_running;
 
 	always @(posedge clk) begin
 		dump_valid <= 0;
 		if (!resetn) begin
 			mem_pointer <= 0;
+			stop_counter <= DEPTH-1;
 			state <= state_running;
 		end else
 		case (state)
 			state_running: begin
 				memory[mem_pointer] <= data;
 				mem_pointer <= mem_pointer == DEPTH-1 ? 0 : mem_pointer+1;
-				stop_counter <= DEPTH - TRIGAT - 2;
-				if (trigger) begin
-					state <= state_triggered;
-				end
+				if (!stop_counter) begin
+					if (trigger) begin
+						stop_counter <= DEPTH - TRIGAT - 2;
+						state <= state_triggered;
+					end
+				end else
+					stop_counter <= stop_counter - 1;
 			end
 			state_triggered: begin
 				memory[mem_pointer] <= data;
@@ -824,11 +831,13 @@ module c3demo_debugger #(
 			state_dump: begin
 				if (dump_valid && dump_ready) begin
 					if (bytes_counter == BYTES-1) begin
-						if (!stop_counter)
-							state <= state_running;
 						bytes_counter <= 0;
 						stop_counter <= stop_counter - 1;
 						mem_pointer <= mem_pointer == DEPTH-1 ? 0 : mem_pointer+1;
+						if (!stop_counter) begin
+							stop_counter <= DEPTH-1;
+							state <= state_running;
+						end
 					end else begin
 						bytes_counter <= bytes_counter + 1;
 					end
