@@ -192,7 +192,7 @@ module c3demo (
 
 
 	// -------------------------------
-	// On-chip logic analyzer (send ep1, trig0)
+	// On-chip logic analyzer (send ep1, trig1)
 
 	(* keep *) wire debug_trigger;
 	(* keep *) wire [15:0] debug_data;
@@ -208,14 +208,28 @@ module c3demo (
 		.trigger(debug_trigger),
 		.data(debug_data),
 
-		.dump_en(trigger_0),
+		.dump_en(trigger_1),
 		.dump_valid(send_ep1_valid),
 		.dump_ready(send_ep1_ready),
 		.dump_data(send_ep1_data)
 	);
 
 	assign debug_trigger = PANEL_STB;
-	assign debug_data = {PANEL_R0, PANEL_G0, PANEL_B0, PANEL_R1, PANEL_G1, PANEL_B1, PANEL_A, PANEL_B, PANEL_C, PANEL_D, PANEL_CLK, PANEL_STB, PANEL_OE};
+	assign debug_data = {
+		PANEL_R0,  // debug_12 -> PANEL_R0
+		PANEL_G0,  // debug_11 -> PANEL_G0
+		PANEL_B0,  // debug_10 -> PANEL_B0
+		PANEL_R1,  // debug_9  -> PANEL_R1
+		PANEL_G1,  // debug_8  -> PANEL_G1
+		PANEL_B1,  // debug_7  -> PANEL_B1
+		PANEL_A,   // debug_6  -> PANEL_A
+		PANEL_B,   // debug_5  -> PANEL_B
+		PANEL_C,   // debug_4  -> PANEL_C
+		PANEL_D,   // debug_3  -> PANEL_D
+		PANEL_CLK, // debug_2  -> PANEL_CLK
+		PANEL_STB, // debug_1  -> PANEL_STB
+		PANEL_OE   // debug_0  -> PANEL_OE
+	};
 
 
 	// -------------------------------
@@ -788,7 +802,7 @@ module c3demo_debugger #(
 			state_running: begin
 				memory[mem_pointer] <= data;
 				mem_pointer <= mem_pointer == DEPTH-1 ? 0 : mem_pointer+1;
-				stop_counter <= DEPTH - TRIGAT;
+				stop_counter <= DEPTH - TRIGAT - 2;
 				if (trigger) begin
 					state <= state_triggered;
 				end
