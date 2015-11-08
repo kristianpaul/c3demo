@@ -194,7 +194,9 @@ module c3demo (
 	// -------------------------------
 	// On-chip logic analyzer (send ep1, trig1)
 
+	(* keep *) wire debug_enable;
 	(* keep *) wire debug_trigger;
+	(* keep *) wire debug_triggered;
 	(* keep *) wire [15:0] debug_data;
 
 	c3demo_debugger #(
@@ -205,7 +207,9 @@ module c3demo (
 		.clk(clk),
 		.resetn(resetn),
 
+		.enable(debug_enable),
 		.trigger(debug_trigger),
+		.triggered(debug_triggered),
 		.data(debug_data),
 
 		.dump_en(trigger_1),
@@ -213,23 +217,6 @@ module c3demo (
 		.dump_ready(send_ep1_ready),
 		.dump_data(send_ep1_data)
 	);
-
-	assign debug_trigger = PANEL_STB;
-	assign debug_data = {
-		PANEL_R0,  // debug_12 -> PANEL_R0
-		PANEL_G0,  // debug_11 -> PANEL_G0
-		PANEL_B0,  // debug_10 -> PANEL_B0
-		PANEL_R1,  // debug_9  -> PANEL_R1
-		PANEL_G1,  // debug_8  -> PANEL_G1
-		PANEL_B1,  // debug_7  -> PANEL_B1
-		PANEL_A,   // debug_6  -> PANEL_A
-		PANEL_B,   // debug_5  -> PANEL_B
-		PANEL_C,   // debug_4  -> PANEL_C
-		PANEL_D,   // debug_3  -> PANEL_D
-		PANEL_CLK, // debug_2  -> PANEL_CLK
-		PANEL_STB, // debug_1  -> PANEL_STB
-		PANEL_OE   // debug_0  -> PANEL_OE
-	};
 
 
 	// -------------------------------
@@ -267,6 +254,7 @@ module c3demo (
 	// PicoRV32 Core
 
 	wire mem_valid;
+	wire mem_instr;
 	wire [31:0] mem_addr;
 	wire [31:0] mem_wdata;
 	wire [3:0] mem_wstrb;
@@ -280,12 +268,34 @@ module c3demo (
 		.clk       (clk            ),
 		.resetn    (resetn_picorv32),
 		.mem_valid (mem_valid      ),
+		.mem_instr (mem_instr      ),
 		.mem_ready (mem_ready      ),
 		.mem_addr  (mem_addr       ),
 		.mem_wdata (mem_wdata      ),
 		.mem_wstrb (mem_wstrb      ),
 		.mem_rdata (mem_rdata      )
 	);
+
+	assign debug_enable = mem_valid && mem_ready;
+	assign debug_trigger = (mem_addr & 32'hF000_0000) == 32'h1000_0000;
+	assign debug_data = {
+		mem_instr,         // debug_15 -> instr
+		|mem_wstrb,        // debug_14 -> wstrb
+		|mem_addr[31:12],  // debug_13 -> addr_hi
+		mem_addr[12],      // debug_12 -> addr_12
+		mem_addr[11],      // debug_11 -> addr_11
+		mem_addr[10],      // debug_10 -> addr_10
+		mem_addr[9],       // debug_9  -> addr_9
+		mem_addr[8],       // debug_8  -> addr_8
+		mem_addr[7],       // debug_7  -> addr_7
+		mem_addr[6],       // debug_6  -> addr_6
+		mem_addr[5],       // debug_5  -> addr_5
+		mem_addr[4],       // debug_4  -> addr_4
+		mem_addr[3],       // debug_3  -> addr_3
+		mem_addr[2],       // debug_2  -> addr_2
+		mem_addr[1],       // debug_1  -> addr_1
+		mem_addr[0]        // debug_0  -> addr_0
+	};
 
 
 	// -------------------------------
@@ -766,6 +776,7 @@ module c3demo_debugger #(
 	input clk,
 	input resetn,
 
+	input             enable,
 	input             trigger,
 	output            triggered,
 	input [WIDTH-1:0] data,
@@ -804,22 +815,26 @@ module c3demo_debugger #(
 		end else
 		case (state)
 			state_running: begin
-				memory[mem_pointer] <= data;
-				mem_pointer <= mem_pointer == DEPTH-1 ? 0 : mem_pointer+1;
-				if (!stop_counter) begin
-					if (trigger) begin
-						stop_counter <= DEPTH - TRIGAT - 2;
-						state <= state_triggered;
-					end
-				end else
-					stop_counter <= stop_counter - 1;
+				if (enable) begin
+					memory[mem_pointer] <= data;
+					mem_pointer <= mem_pointer == DEPTH-1 ? 0 : mem_pointer+1;
+					if (!stop_counter) begin
+						if (trigger) begin
+							stop_counter <= DEPTH - TRIGAT - 2;
+							state <= state_triggered;
+						end
+					end else
+						stop_counter <= stop_counter - 1;
+				end
 			end
 			state_triggered: begin
-				memory[mem_pointer] <= data;
-				mem_pointer <= mem_pointer == DEPTH-1 ? 0 : mem_pointer+1;
-				stop_counter <= stop_counter - 1;
-				if (!stop_counter) begin
-					state <= state_waitdump;
+				if (enable) begin
+					memory[mem_pointer] <= data;
+					mem_pointer <= mem_pointer == DEPTH-1 ? 0 : mem_pointer+1;
+					stop_counter <= stop_counter - 1;
+					if (!stop_counter) begin
+						state <= state_waitdump;
+					end
 				end
 			end
 			state_waitdump: begin
