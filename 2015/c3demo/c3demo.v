@@ -17,11 +17,18 @@ module c3demo (
 	inout RASPI_11, RASPI_12, RASPI_15, RASPI_16, RASPI_19, RASPI_21, RASPI_24, RASPI_35, RASPI_36,
 
 	// RasPi Interface: Control Lines
-	input RASPI_38, RASPI_40
+	input RASPI_38, RASPI_40,
+
+	// SRAM Interface
+	output SRAM_A0, SRAM_A1, SRAM_A2, SRAM_A3, SRAM_A4, SRAM_A5, SRAM_A6, SRAM_A7,
+	output SRAM_A8, SRAM_A9, SRAM_A10, SRAM_A11, SRAM_A12, SRAM_A13, SRAM_A14, SRAM_A15,
+	inout SRAM_D0, SRAM_D1, SRAM_D2, SRAM_D3, SRAM_D4, SRAM_D5, SRAM_D6, SRAM_D7,
+	inout SRAM_D8, SRAM_D9, SRAM_D10, SRAM_D11, SRAM_D12, SRAM_D13, SRAM_D14, SRAM_D15,
+	output SRAM_CE, SRAM_WE, SRAM_OE, SRAM_LB, SRAM_UB
 );
 	// 2048 32bit words = 8k bytes memory
 	// 128 32bit words = 512 bytes memory
-	parameter MEM_SIZE = 2048;
+	parameter BOOT_MEM_SIZE = 2048;
 
 	// wire dgb0, dbg1;
 	// always @* DEBUG0 = dbg0;
@@ -39,6 +46,30 @@ module c3demo (
 		.clk(clk),
 		.resetn(resetn)
 	);
+
+
+	// -------------------------------
+	// SRAM Interface
+
+	reg [1:0] sram_state;
+	reg sram_wrlb, sram_wrub;
+	reg [15:0] sram_addr, sram_dout;
+	wire [15:0] sram_din;
+
+	assign sram_din = {SRAM_D15, SRAM_D14, SRAM_D13, SRAM_D12, SRAM_D11, SRAM_D10, SRAM_D9, SRAM_D8,
+			SRAM_D7, SRAM_D6, SRAM_D5, SRAM_D4, SRAM_D3, SRAM_D2, SRAM_D1, SRAM_D0};
+
+	assign {SRAM_D15, SRAM_D14, SRAM_D13, SRAM_D12, SRAM_D11, SRAM_D10, SRAM_D9, SRAM_D8,
+			SRAM_D7, SRAM_D6, SRAM_D5, SRAM_D4, SRAM_D3, SRAM_D2, SRAM_D1, SRAM_D0} = (sram_wrlb || sram_wrub) ? sram_dout : 16'bz;
+
+	assign {SRAM_A15, SRAM_A14, SRAM_A13, SRAM_A12, SRAM_A11, SRAM_A10, SRAM_A9, SRAM_A8,
+			SRAM_A7, SRAM_A6, SRAM_A5, SRAM_A4, SRAM_A3, SRAM_A2, SRAM_A1, SRAM_A0} = sram_addr;
+	
+	assign SRAM_CE = 0;
+	assign SRAM_WE = (sram_wrlb || sram_wrub) ? !clk : 1;
+	assign SRAM_OE = (sram_wrlb || sram_wrub);
+	assign SRAM_LB = (sram_wrlb || sram_wrub) ? !sram_wrlb : 0;
+	assign SRAM_UB = (sram_wrlb || sram_wrub) ? !sram_wrub : 0;
 
 
 	// -------------------------------
@@ -301,12 +332,19 @@ module c3demo (
 	// -------------------------------
 	// Memory/IO Interface
 
-	reg [31:0] memory [0:MEM_SIZE-1];
+	reg [31:0] memory [0:BOOT_MEM_SIZE-1];
 	initial $readmemh("firmware.hex", memory);
 
 	always @(posedge clk) begin
 		mem_ready <= 0;
 		led_wr_enable <= 0;
+
+		sram_state <= 0;
+		sram_wrlb <= 0;
+		sram_wrub <= 0;
+		sram_addr <= 'bx;
+		sram_dout <= 'bx;
+
 		if (!resetn_picorv32) begin
 			LED1 <= 0;
 			LED2 <= 0;
@@ -321,7 +359,7 @@ module c3demo (
 		if (mem_valid && !mem_ready) begin
 			(* parallel_case *)
 			case (1)
-				(mem_addr >> 2) < MEM_SIZE: begin
+				(mem_addr >> 2) < BOOT_MEM_SIZE: begin
 					if (mem_wstrb) begin
 						if (mem_wstrb[0]) memory[mem_addr >> 2][ 7: 0] <= mem_wdata[ 7: 0];
 						if (mem_wstrb[1]) memory[mem_addr >> 2][15: 8] <= mem_wdata[15: 8];
@@ -331,6 +369,46 @@ module c3demo (
 						mem_rdata <= memory[mem_addr >> 2];
 					end
 					mem_ready <= 1;
+				end
+				(mem_addr & 32'hF000_0000) == 32'h0000_0000 && (mem_addr >> 2) >= BOOT_MEM_SIZE: begin
+					if (mem_wstrb) begin
+						(* parallel_case, full_case *)
+						case (sram_state)
+							0: begin
+								sram_addr <= {mem_addr >> 2, 1'b0};
+								sram_dout <= mem_wdata[15:0];
+								sram_wrlb <= mem_wstrb[0];
+								sram_wrub <= mem_wstrb[1];
+								sram_state <= 1;
+							end
+							1: begin
+								sram_addr <= {mem_addr >> 2, 1'b1};
+								sram_dout <= mem_wdata[31:16];
+								sram_wrlb <= mem_wstrb[2];
+								sram_wrub <= mem_wstrb[3];
+								sram_state <= 0;
+								mem_ready <= 1;
+							end
+						endcase
+					end else begin
+						(* parallel_case, full_case *)
+						case (sram_state)
+							0: begin
+								sram_addr <= {mem_addr >> 2, 1'b0};
+								sram_state <= 1;
+							end
+							1: begin
+								sram_addr <= {mem_addr >> 2, 1'b1};
+								mem_rdata[15:0] <= sram_din;
+								sram_state <= 2;
+							end
+							2: begin
+								mem_rdata[31:16] <= sram_din;
+								sram_state <= 0;
+								mem_ready <= 1;
+							end
+						endcase
+					end
 				end
 				(mem_addr & 32'hF000_0000) == 32'h1000_0000: begin
 					if (mem_wstrb) begin

@@ -7,6 +7,49 @@ module testbench;
 	reg raspi_dir = 0, raspi_clk = 0;
 	assign raspi_dat = raspi_dout;
 
+	wire [15:0] sram_a, sram_d;
+	wire sram_ce, sram_we, sram_oe, sram_lb, sram_ub;
+	reg [15:0] sram_memory [0:65535];
+	reg [15:0] sram_dout;
+
+	assign sram_d = sram_dout;
+
+	always @* begin
+		// Truth table on page 2 of the SRAM data sheet:
+		// http://www.issi.com/WW/pdf/61-64WV6416DAxx-DBxx.pdf
+		casez ({sram_we, sram_ce, sram_oe, sram_lb, sram_ub})
+			// Not Selected / Output Disabled
+			5'b z1zzz,
+			5'b 101zz,
+			5'b z0z11: begin
+				sram_dout = 16'bz;
+			end
+			// Read
+			5'b 10001: begin
+				sram_dout = {8'bz, sram_memory[sram_a][7:0]};
+			end
+			5'b 10010: begin
+				sram_dout = {sram_memory[sram_a][15:8], 8'bz};
+			end
+			5'b 10000: begin
+				sram_dout = sram_memory[sram_a][15:8];
+			end
+			// Write
+			5'b 00z01: begin
+				sram_dout = {8'bz, sram_d[7:0]};
+				sram_memory[sram_a][7:0] = sram_d[7:0];
+			end
+			5'b 00z10: begin
+				sram_dout = {sram_d[15:8], 8'bz};
+				sram_memory[sram_a][15:8] = sram_d[15:8];
+			end
+			5'b 00z00: begin
+				sram_dout = sram_d;
+				sram_memory[sram_a] = sram_d;
+			end
+		endcase
+	end
+
 	initial begin
 		#5; forever #5 clk = !clk;
 	end
@@ -23,7 +66,47 @@ module testbench;
 		.RASPI_35(raspi_dat[1]),
 		.RASPI_36(raspi_dat[0]),
 		.RASPI_38(raspi_dir),
-		.RASPI_40(raspi_clk)
+		.RASPI_40(raspi_clk),
+
+		.SRAM_A0(sram_a[0]),
+		.SRAM_A1(sram_a[1]),
+		.SRAM_A2(sram_a[2]),
+		.SRAM_A3(sram_a[3]),
+		.SRAM_A4(sram_a[4]),
+		.SRAM_A5(sram_a[5]),
+		.SRAM_A6(sram_a[6]),
+		.SRAM_A7(sram_a[7]),
+		.SRAM_A8(sram_a[8]),
+		.SRAM_A9(sram_a[9]),
+		.SRAM_A10(sram_a[10]),
+		.SRAM_A11(sram_a[11]),
+		.SRAM_A12(sram_a[12]),
+		.SRAM_A13(sram_a[13]),
+		.SRAM_A14(sram_a[14]),
+		.SRAM_A15(sram_a[15]),
+
+		.SRAM_D0(sram_d[0]),
+		.SRAM_D1(sram_d[1]),
+		.SRAM_D2(sram_d[2]),
+		.SRAM_D3(sram_d[3]),
+		.SRAM_D4(sram_d[4]),
+		.SRAM_D5(sram_d[5]),
+		.SRAM_D6(sram_d[6]),
+		.SRAM_D7(sram_d[7]),
+		.SRAM_D8(sram_d[8]),
+		.SRAM_D9(sram_d[9]),
+		.SRAM_D10(sram_d[10]),
+		.SRAM_D11(sram_d[11]),
+		.SRAM_D12(sram_d[12]),
+		.SRAM_D13(sram_d[13]),
+		.SRAM_D14(sram_d[14]),
+		.SRAM_D15(sram_d[15]),
+
+		.SRAM_CE(sram_ce),
+		.SRAM_WE(sram_we),
+		.SRAM_OE(sram_oe),
+		.SRAM_LB(sram_lb),
+		.SRAM_UB(sram_ub)
 	);
 
 	integer f;

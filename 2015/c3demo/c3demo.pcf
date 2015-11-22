@@ -18,6 +18,46 @@ set_io RASPI_36 D9
 set_io RASPI_38 C9
 set_io RASPI_40 C10
 
+set_io SRAM_A0  L7
+set_io SRAM_A1  L5
+set_io SRAM_A2  L6
+set_io SRAM_A3  K3
+set_io SRAM_A4  L4
+set_io SRAM_A5  L3
+set_io SRAM_A6  M4
+set_io SRAM_A7  N4
+set_io SRAM_A8  N3
+set_io SRAM_A9  P6
+set_io SRAM_A10 P4
+set_io SRAM_A11 M1
+set_io SRAM_A12 M2
+set_io SRAM_A13 L1
+set_io SRAM_A14 K1
+set_io SRAM_A15 J2
+
+set_io SRAM_D0  N2
+set_io SRAM_D1  P1
+set_io SRAM_D2  P2
+set_io SRAM_D3  R1
+set_io SRAM_D4  N5
+set_io SRAM_D5  P7
+set_io SRAM_D6  P5
+set_io SRAM_D7  R4
+set_io SRAM_D8  J4
+set_io SRAM_D9  J3
+set_io SRAM_D10 P8
+set_io SRAM_D11 R6
+set_io SRAM_D12 R5
+set_io SRAM_D13 M8
+set_io SRAM_D14 N7
+set_io SRAM_D15 M7
+
+set_io SRAM_CE  M3
+set_io SRAM_WE  R3
+set_io SRAM_OE  M5
+set_io SRAM_LB  N6
+set_io SRAM_UB  M6
+
 # set_io P1_1  A1
 # set_io P1_2  A2
 # set_io P1_3  B1
