@@ -88,6 +88,9 @@ void debug(uint32_t v)
 
 void main()
 {
+	for (int i = 0; i < 64; i++)
+		*(uint32_t*)(64*1024 + i) = *(uint32_t*)i;
+
 	for (int x = 0; x < 32; x++)
 	for (int y = 0; y < 32; y++)
 		setpixel(x, y, 6*(x+1), 6*(y+1), 0);
