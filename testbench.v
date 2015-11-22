@@ -14,39 +14,20 @@ module testbench;
 
 	assign sram_d = sram_dout;
 
-	always @* begin
+	always @(sram_we, sram_ce, sram_oe, sram_lb, sram_ub, sram_a, sram_d) begin
 		// Truth table on page 2 of the SRAM data sheet:
 		// http://www.issi.com/WW/pdf/61-64WV6416DAxx-DBxx.pdf
 		casez ({sram_we, sram_ce, sram_oe, sram_lb, sram_ub})
 			// Not Selected / Output Disabled
-			5'b z1zzz,
-			5'b 101zz,
-			5'b z0z11: begin
-				sram_dout = 16'bz;
-			end
+			5'b z1zzz, 5'b 101zz, 5'b z0z11: sram_dout = 16'bz;
 			// Read
-			5'b 10001: begin
-				sram_dout = {8'bz, sram_memory[sram_a][7:0]};
-			end
-			5'b 10010: begin
-				sram_dout = {sram_memory[sram_a][15:8], 8'bz};
-			end
-			5'b 10000: begin
-				sram_dout = sram_memory[sram_a][15:8];
-			end
+			5'b 10001: sram_dout = {8'bz, sram_memory[sram_a][7:0]};
+			5'b 10010: sram_dout = {sram_memory[sram_a][15:8], 8'bz};
+			5'b 10000: sram_dout = sram_memory[sram_a];
 			// Write
-			5'b 00z01: begin
-				sram_dout = {8'bz, sram_d[7:0]};
-				sram_memory[sram_a][7:0] = sram_d[7:0];
-			end
-			5'b 00z10: begin
-				sram_dout = {sram_d[15:8], 8'bz};
-				sram_memory[sram_a][15:8] = sram_d[15:8];
-			end
-			5'b 00z00: begin
-				sram_dout = sram_d;
-				sram_memory[sram_a] = sram_d;
-			end
+			5'b 00z01: sram_memory[sram_a][7:0] = sram_d[7:0];
+			5'b 00z10: sram_memory[sram_a][15:8] = sram_d[15:8];
+			5'b 00z00: sram_memory[sram_a] = sram_d;
 		endcase
 	end
 

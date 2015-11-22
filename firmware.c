@@ -69,9 +69,12 @@ void drawtext(int *xp, int *pp, int y, const char *str)
 	}
 }
 
-const char *top_str = "Yosys ** IceStorm ** Arachne-pnr ** RISC-V ** PicoRV32 ** IcoBoard ** ";
-const char *bottom_str = "Meet us at 32nd Chaos Communication Congress (32c3) - 27-30 December 2015 ++++ ";
+const char *orig_top_str = "Yosys ** IceStorm ** Arachne-pnr ** RISC-V ** PicoRV32 ** IcoBoard ** ";
+const char *orig_bottom_str = "Meet us at 32nd Chaos Communication Congress (32c3) - 27-30 December 2015 ++++ ";
 bool debug_active = false;
+
+char *top_str = 64 * 1024;
+char *bottom_str = 65 * 1024;
 
 void debug(uint32_t v)
 {
@@ -88,8 +91,22 @@ void debug(uint32_t v)
 
 void main()
 {
-	for (int i = 0; i < 64; i++)
-		*(uint32_t*)(64*1024 + i) = *(uint32_t*)i;
+#if 0
+	top_str = orig_top_str;
+	bottom_str = orig_bottom_str;
+#else
+	for (int i = 0;; i++) {
+		top_str[i] = orig_top_str[i];
+		if ('a' <= top_str[i] && top_str[i] <= 'z') top_str[i] += 'A' - 'a';
+		if (!top_str[i]) break;
+	}
+
+	for (int i = 0;; i++) {
+		bottom_str[i] = orig_bottom_str[i];
+		if ('a' <= bottom_str[i] && bottom_str[i] <= 'z') bottom_str[i] += 'A' - 'a';
+		if (!bottom_str[i]) break;
+	}
+#endif
 
 	for (int x = 0; x < 32; x++)
 	for (int y = 0; y < 32; y++)
