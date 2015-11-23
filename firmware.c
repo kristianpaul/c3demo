@@ -73,9 +73,6 @@ const char *orig_top_str = "Yosys ** IceStorm ** Arachne-pnr ** RISC-V ** PicoRV
 const char *orig_bottom_str = "Meet us at 32nd Chaos Communication Congress (32c3) - 27-30 December 2015 ++++ ";
 bool debug_active = false;
 
-char *top_str = 64 * 1024;
-char *bottom_str = 65 * 1024;
-
 void debug(uint32_t v)
 {
 	static int x = 0, p = 0;
@@ -91,10 +88,13 @@ void debug(uint32_t v)
 
 void main()
 {
-#if 0
-	top_str = orig_top_str;
-	bottom_str = orig_bottom_str;
+#if 1
+	const char *top_str = orig_top_str;
+	const char *bottom_str = orig_bottom_str;
 #else
+	char *top_str = (char*)(64 * 1024);
+	char *bottom_str = (char*)(65 * 1024);
+
 	for (int i = 0;; i++) {
 		top_str[i] = orig_top_str[i];
 		if ('a' <= top_str[i] && top_str[i] <= 'z') top_str[i] += 'A' - 'a';
