@@ -38,12 +38,13 @@ module c3demo (
 	// -------------------------------
 	// PLL
 
-	wire clk;
+	wire clk, clk90;
 	wire resetn;
 
 	c3demo_clkgen clkgen (
 		.CLK12MHZ(CLK12MHZ),
 		.clk(clk),
+		.clk90(clk90),
 		.resetn(resetn)
 	);
 
@@ -79,7 +80,7 @@ module c3demo (
 			SRAM_A7, SRAM_A6, SRAM_A5, SRAM_A4, SRAM_A3, SRAM_A2, SRAM_A1, SRAM_A0} = sram_addr;
 	
 	assign SRAM_CE = 0;
-	assign SRAM_WE = (sram_wrlb || sram_wrub) ? !clk : 1;
+	assign SRAM_WE = (sram_wrlb || sram_wrub) ? !clk90 : 1;
 	assign SRAM_OE = (sram_wrlb || sram_wrub);
 	assign SRAM_LB = (sram_wrlb || sram_wrub) ? !sram_wrlb : 0;
 	assign SRAM_UB = (sram_wrlb || sram_wrub) ? !sram_wrub : 0;
@@ -450,7 +451,7 @@ endmodule
 
 module c3demo_clkgen (
 	input CLK12MHZ,
-	output clk,
+	output clk, clk90,
 	output resetn
 );
 	// PLLs are not working on alpha board 
@@ -496,6 +497,12 @@ module c3demo_clkgen (
 		.USER_SIGNAL_TO_GLOBAL_BUFFER(divided_clock[`POW2CLOCKDIV]),
 		.GLOBAL_BUFFER_OUTPUT(clk)
 	);
+
+	reg clk90_r;
+	assign clk90 = clk90_r;
+
+	always @(negedge divided_clock[`POW2CLOCKDIV-1])
+		clk90_r <= clk;
 
 	// -------------------------------
 	// Reset Generator

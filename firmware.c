@@ -88,7 +88,7 @@ void debug(uint32_t v)
 
 void main()
 {
-#if 1
+#if 0
 	const char *top_str = orig_top_str;
 	const char *bottom_str = orig_bottom_str;
 #else
