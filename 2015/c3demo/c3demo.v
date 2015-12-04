@@ -101,9 +101,9 @@ module c3demo (
 	wire recv_ep1_ready = 1;
 	wire [7:0] recv_ep1_data = recv_ep0_data;
 
-	// recv ep2: unused
+	// recv ep2: console input
 	wire recv_ep2_valid;
-	wire recv_ep2_ready = 1;
+	reg  recv_ep2_ready;
 	wire [7:0] recv_ep2_data = recv_ep0_data;
 
 	// recv ep3: unused
@@ -121,15 +121,15 @@ module c3demo (
 	wire send_ep1_ready;
 	wire [7:0] send_ep1_data;
 
-	// send ep2: unused
-	wire send_ep2_valid = 0;
+	// send ep2: console output
+	reg  send_ep2_valid;
 	wire send_ep2_ready;
-	wire [7:0] send_ep2_data;
+	reg  [7:0] send_ep2_data;
 
 	// send ep3: unused
 	wire send_ep3_valid = 0;
 	wire send_ep3_ready;
-	wire [7:0] send_ep3_data;
+	wire [7:0] send_ep3_data = 'bx;
 
 	// trigger lines
 	wire trigger_0;  // debugger
@@ -359,12 +359,19 @@ module c3demo (
 		sram_addr <= 'bx;
 		sram_dout <= 'bx;
 
+		if (send_ep2_ready)
+			send_ep2_valid <= 0;
+
+		recv_ep2_ready <= 0;
+
 		if (!resetn_picorv32) begin
 			LED1 <= 0;
 			LED2 <= 0;
 			LED3 <= 0;
 			DEBUG0 <= 0;
 			DEBUG1 <= 0;
+
+			send_ep2_valid <= 0;
 
 			if (prog_mem_active) begin
 				memory[prog_mem_addr] <= prog_mem_data;
@@ -441,6 +448,23 @@ module c3demo (
 						if (mem_addr[7:0] == 8'h 10) DEBUG1 <= mem_wdata;
 					end
 					mem_ready <= 1;
+				end
+				(mem_addr & 32'hF000_0000) == 32'h3000_0000: begin
+					if (mem_wstrb) begin
+						if (send_ep2_ready || !send_ep2_valid) begin
+							send_ep2_valid <= 1;
+							send_ep2_data <= mem_wdata;
+							mem_ready <= 1;
+						end
+					end else begin
+						if (recv_ep2_valid && !recv_ep2_ready) begin
+							recv_ep2_ready <= 1;
+							mem_rdata <= recv_ep2_data;
+						end else begin
+							mem_rdata <= ~0;
+						end
+						mem_ready <= 1;
+					end
 				end
 			endcase
 		end

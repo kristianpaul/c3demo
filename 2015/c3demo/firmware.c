@@ -22,6 +22,35 @@ static inline void setdebug1(bool v) {
 	*(volatile uint32_t*)0x20000010 = v;
 }
 
+int console_peek_ch = -1;
+
+static inline int console_peek()
+{
+	if (console_peek_ch < 0)
+		console_peek_ch = *(volatile uint32_t*)0x30000000;
+	return console_peek_ch;
+}
+
+static inline int console_getc()
+{
+	int c = console_peek();
+	while (c < 0)
+		c = console_peek();
+	console_peek_ch = -1;
+	return c;
+}
+
+static inline void console_putc(int c)
+{
+	*(volatile uint32_t*)0x30000000 = c;
+}
+
+static inline void console_puts(const char *s)
+{
+	while (*s)
+		*(volatile uint32_t*)0x30000000 = *(s++);
+}
+
 void setpixel(int x, int y, uint8_t r, uint8_t g, uint8_t b)
 {
 	if (0 <= x && x < 32 && 0 <= y && y < 32) {
@@ -88,6 +117,8 @@ void debug(uint32_t v)
 
 void main()
 {
+	console_puts("Test firmware running.\n");
+
 #if 0
 	const char *top_str = orig_top_str;
 	const char *bottom_str = orig_bottom_str;
@@ -145,6 +176,26 @@ void main()
 		while (cycles < cycles_limit) {
 			asm volatile ("rdcycle %0" : "=r"(num_cycles_now));
 			cycles = num_cycles_now - num_cycles_start;
+		}
+
+		if (console_peek() >= 0)
+		{
+			console_puts("New message: ");
+
+			x1 = p1 = 0;
+			for (int i = 0;; i++) {
+				top_str[i] = console_getc();
+				if (top_str[i] == '\r' || top_str[i] == '\n') {
+					top_str[i] = ' ';
+					top_str[++i] = ' ';
+					top_str[++i] = 0;
+					break;
+				} else {
+					console_putc(top_str[i]);
+				}
+			}
+
+			console_puts("\nOK\n");
 		}
 	}
 }
