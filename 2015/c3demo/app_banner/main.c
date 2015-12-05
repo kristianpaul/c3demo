@@ -55,7 +55,7 @@ void setpixel(int x, int y, uint8_t r, uint8_t g, uint8_t b)
 {
 	if (0 <= x && x < 32 && 0 <= y && y < 32) {
 		uint32_t rgb = (r << 16) | (g << 8) | b;
-		uint32_t addr = 4*((31-y) + 32*(31-x)) + 0x10000000;
+		uint32_t addr = 4*x + 32*4*y + 0x10000000;
 		*(volatile uint32_t*)addr = rgb;
 	}
 }
@@ -98,8 +98,8 @@ void drawtext(int *xp, int *pp, int y, const char *str)
 	}
 }
 
-const char *orig_top_str = "Yosys ** IceStorm ** Arachne-pnr ** RISC-V ** PicoRV32 ** IcoBoard ** ";
-const char *orig_bottom_str = "Meet us at 32nd Chaos Communication Congress (32c3) - 27-30 December 2015 ++++ ";
+char top_str[512] = "Yosys ** IceStorm ** Arachne-pnr ** RISC-V ** PicoRV32 ** IcoBoard ** ";
+char bottom_str[512] = "Meet us at 32nd Chaos Communication Congress (32c3) - 27-30 December 2015 ++++ ";
 bool debug_active = false;
 
 void debug(uint32_t v)
@@ -117,27 +117,7 @@ void debug(uint32_t v)
 
 void main()
 {
-	console_puts("Test firmware running.\n");
-
-#if 0
-	const char *top_str = orig_top_str;
-	const char *bottom_str = orig_bottom_str;
-#else
-	char *top_str = (char*)(64 * 1024);
-	char *bottom_str = (char*)(65 * 1024);
-
-	for (int i = 0;; i++) {
-		top_str[i] = orig_top_str[i];
-		if ('a' <= top_str[i] && top_str[i] <= 'z') top_str[i] += 'A' - 'a';
-		if (!top_str[i]) break;
-	}
-
-	for (int i = 0;; i++) {
-		bottom_str[i] = orig_bottom_str[i];
-		if ('a' <= bottom_str[i] && bottom_str[i] <= 'z') bottom_str[i] += 'A' - 'a';
-		if (!bottom_str[i]) break;
-	}
-#endif
+	console_puts("Test application running.\n");
 
 	for (int x = 0; x < 32; x++)
 	for (int y = 0; y < 32; y++)

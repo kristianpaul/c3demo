@@ -23,10 +23,7 @@ help:
 	@echo "   make debug"
 	@echo ""
 
-8x8font.h: 8x8font.py 8x8font.png
-	python3 8x8font.py > 8x8font.h
-
-firmware.elf: firmware.S firmware.c 8x8font.h firmware.lds
+firmware.elf: firmware.S firmware.c firmware.lds
 	riscv32-unknown-elf-gcc -Os -m32 -ffreestanding -nostdlib -o firmware.elf firmware.S firmware.c \
 			--std=gnu99 -Wl,-Bstatic,-T,firmware.lds,-Map,firmware.map,--strip-debug -lgcc
 	chmod -x firmware.elf
