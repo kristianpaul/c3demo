@@ -566,20 +566,20 @@ module c3demo_crossclkfifo #(
 	end
 
 	function [ABITS-1:0] bin2gray(input [ABITS-1:0] in);
-		integer i;
-		reg [ABITS:0] temp;
 		begin
-			temp = in;
-			for (i=0; i<ABITS; i=i+1)
-				bin2gray[i] = ^temp[i +: 2];
+			bin2gray = in ^ (in >> 1);
 		end
 	endfunction
 
 	function [ABITS-1:0] gray2bin(input [ABITS-1:0] in);
-		integer i;
 		begin
-			for (i=0; i<ABITS; i=i+1)
-				gray2bin[i] = ^(in >> i);
+			gray2bin = in;
+			// Assuming ABITS is less or equal 32
+			gray2bin = gray2bin ^ (gray2bin >> 16);
+			gray2bin = gray2bin ^ (gray2bin >> 8);
+			gray2bin = gray2bin ^ (gray2bin >> 4);
+			gray2bin = gray2bin ^ (gray2bin >> 2);
+			gray2bin = gray2bin ^ (gray2bin >> 1);
 		end
 	endfunction
 
