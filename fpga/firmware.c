@@ -91,9 +91,7 @@ int hex2int(char ch)
 
 void main()
 {
-	*(volatile uint32_t*)0x20000000 = 1; // LED1
-	*(volatile uint32_t*)0x20000004 = 1; // LED2
-	*(volatile uint32_t*)0x20000008 = 1; // LED3
+	*(volatile uint32_t*)0x20000000 = 7; // LEDs On
 
 	for (int x = 0; x < 32; x++)
 	for (int y = 0; y < 32; y++)
@@ -102,9 +100,7 @@ void main()
 		else
 			setpixel(x, y, 6*(x+1), 6*(y+1), 0);
 
-	*(volatile uint32_t*)0x20000000 = 0; // LED1
-	*(volatile uint32_t*)0x20000004 = 0; // LED2
-	*(volatile uint32_t*)0x20000008 = 0; // LED3
+	*(volatile uint32_t*)0x20000000 = 0; // LEDs Off
 
 	console_puts(".\nBootloader> " + 2);
 	uint8_t *memcursor = (uint8_t*)(64 * 1024);
