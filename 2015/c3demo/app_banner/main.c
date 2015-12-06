@@ -2,24 +2,44 @@
 #include <stdbool.h>
 #include "8x8font.h"
 
-static inline void setled1(bool v) {
-	*(volatile uint32_t*)0x20000000 = v;
+static inline void setled1(bool v)
+{
+	if (v)
+		*(volatile uint32_t*)0x20000000 |= 1;
+	else
+		*(volatile uint32_t*)0x20000000 &= ~1;
 }
 
-static inline void setled2(bool v) {
-	*(volatile uint32_t*)0x20000004 = v;
+static inline void setled2(bool v)
+{
+	if (v)
+		*(volatile uint32_t*)0x20000000 |= 2;
+	else
+		*(volatile uint32_t*)0x20000000 &= ~2;
 }
 
-static inline void setled3(bool v) {
-	*(volatile uint32_t*)0x20000008 = v;
+static inline void setled3(bool v)
+{
+	if (v)
+		*(volatile uint32_t*)0x20000000 |= 4;
+	else
+		*(volatile uint32_t*)0x20000000 &= ~4;
 }
 
-static inline void setdebug0(bool v) {
-	*(volatile uint32_t*)0x2000000c = v;
+static inline void setdebug0(bool v)
+{
+	if (v)
+		*(volatile uint32_t*)0x20000000 |= 8;
+	else
+		*(volatile uint32_t*)0x20000000 &= ~8;
 }
 
-static inline void setdebug1(bool v) {
-	*(volatile uint32_t*)0x20000010 = v;
+static inline void setdebug1(bool v)
+{
+	if (v)
+		*(volatile uint32_t*)0x20000000 |= 16;
+	else
+		*(volatile uint32_t*)0x20000000 &= ~16;
 }
 
 int console_peek_ch = -1;

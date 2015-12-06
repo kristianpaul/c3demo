@@ -24,7 +24,11 @@ module c3demo (
 	output SRAM_A8, SRAM_A9, SRAM_A10, SRAM_A11, SRAM_A12, SRAM_A13, SRAM_A14, SRAM_A15,
 	inout SRAM_D0, SRAM_D1, SRAM_D2, SRAM_D3, SRAM_D4, SRAM_D5, SRAM_D6, SRAM_D7,
 	inout SRAM_D8, SRAM_D9, SRAM_D10, SRAM_D11, SRAM_D12, SRAM_D13, SRAM_D14, SRAM_D15,
-	output SRAM_CE, SRAM_WE, SRAM_OE, SRAM_LB, SRAM_UB
+	output SRAM_CE, SRAM_WE, SRAM_OE, SRAM_LB, SRAM_UB,
+
+	// PMODS
+	inout PMOD1_1, PMOD1_2, PMOD1_3, PMOD1_4, PMOD1_7, PMOD1_8, PMOD1_9, PMOD1_10,
+	inout PMOD2_1, PMOD2_2, PMOD2_3, PMOD2_4, PMOD2_7, PMOD2_8, PMOD2_9, PMOD2_10
 );
 	// 2048 32bit words = 8k bytes memory
 	// 128 32bit words = 512 bytes memory
@@ -46,6 +50,31 @@ module c3demo (
 		.clk(clk),
 		.clk90(clk90),
 		.resetn(resetn)
+	);
+
+
+	// -------------------------------
+	// PMODs
+
+	reg [7:0] pmod1_dir, pmod1_dout;
+	wire [7:0] pmod1_din;
+
+	reg [7:0] pmod2_dir, pmod2_dout;
+	wire [7:0] pmod2_din;
+
+	SB_IO #(
+		.PIN_TYPE(6'b 1010_01),
+		.PULLUP(1'b 0)
+	) pmod1_io [7:0] (
+		.PACKAGE_PIN({PMOD1_10, PMOD1_9, PMOD1_8, PMOD1_7, PMOD1_4, PMOD1_3, PMOD1_2, PMOD1_1}),
+		.OUTPUT_ENABLE(pmod1_dir),
+		.D_OUT_0(pmod1_dout),
+		.D_IN_0(pmod1_din)
+	), pmod2_io [7:0] (
+		.PACKAGE_PIN({PMOD2_10, PMOD2_9, PMOD2_8, PMOD2_7, PMOD2_4, PMOD2_3, PMOD2_2, PMOD2_1}),
+		.OUTPUT_ENABLE(pmod2_dir),
+		.D_OUT_0(pmod2_dout),
+		.D_IN_0(pmod2_din)
 	);
 
 
@@ -441,12 +470,16 @@ module c3demo (
 				end
 				(mem_addr & 32'hF000_0000) == 32'h2000_0000: begin
 					if (mem_wstrb) begin
-						if (mem_addr[7:0] == 8'h 00) LED1 <= mem_wdata;
-						if (mem_addr[7:0] == 8'h 04) LED2 <= mem_wdata;
-						if (mem_addr[7:0] == 8'h 08) LED3 <= mem_wdata;
-						if (mem_addr[7:0] == 8'h 0c) DEBUG0 <= mem_wdata;
-						if (mem_addr[7:0] == 8'h 10) DEBUG1 <= mem_wdata;
+						if (mem_addr[7:0] == 8'h 00) {DEBUG1, DEBUG0, LED3, LED2, LED1} <= mem_wdata;
+						if (mem_addr[7:0] == 8'h 10) pmod1_dir <= mem_wdata;
+						if (mem_addr[7:0] == 8'h 14) pmod1_dout <= mem_wdata;
+						if (mem_addr[7:0] == 8'h 20) pmod2_dir <= mem_wdata;
+						if (mem_addr[7:0] == 8'h 24) pmod2_dout <= mem_wdata;
 					end
+					mem_rdata <= 0;
+					if (mem_addr[7:0] == 8'h 00) mem_rdata <= {DEBUG1, DEBUG0, LED3, LED2, LED1};
+					if (mem_addr[7:0] == 8'h 14) mem_rdata <= pmod1_din;
+					if (mem_addr[7:0] == 8'h 24) mem_rdata <= pmod2_din;
 					mem_ready <= 1;
 				end
 				(mem_addr & 32'hF000_0000) == 32'h3000_0000: begin
