@@ -56,6 +56,9 @@ int player_x;
 int player_bullet_x;
 int player_bullet_y;
 
+bool autopilot;
+int autopilot_state;
+
 bool invaders_chdir;
 int invaders_dir;
 int invaders_down;
@@ -229,10 +232,15 @@ void move_player_right()
 	setpixel(player_x+0, 30, 50, 100, 100);
 }
 
+void mysleep(int n)
+{
+	while (n--)
+		for (int i = 0; i < 500000; i++)
+			asm volatile ("");
+}
+
 void game()
 {
-	setled(1);
-
 	player_bullet_x = 0;
 	player_bullet_y = -1;
 
@@ -257,15 +265,19 @@ void game()
 		else if (level == 0)
 			setpixel(x, y, 0, 0, 0);
 
-	while (level == 6)
-		asm volatile ("");
+	if (level == 6) {
+		mysleep(10);
+		while (!autopilot)
+			mysleep(1);
+		reset_blocks = true;
+		return;
+	}
 
 	for (int i = 0; i < level; i++)
 	for (int x = 0; x < 4; x++)
 		setpixel(2 + i*6 + x, 0, 50, 50, 0);
 
-	for (int i = 0; i < 500000; i++)
-		asm volatile ("");
+	mysleep(1);
 
 	if (reset_blocks) {
 		place_barrier(3, 27);
@@ -300,20 +312,64 @@ void game()
 	uint32_t num_cycles_now, num_cycles_last;
 	asm volatile ("rdcycle %0" : "=r"(num_cycles_last));
 
-	while (1)
+	for (int iter = 0;; iter++)
 	{
 		ctrlbits = *(volatile uint32_t*)0x20000014;
 		bool new_fire = !((ctrlbits >> 5) & 1);
 		int new_pos = ctrlbits >> 6;
 		new_pos = new_pos ^ (new_pos >> 1);
 
+		bool move_left = false;
+		bool move_right = false;
+		bool fire = false;
+
 		if (new_pos == ((old_pos+1) & 3))
-			move_player_left();
+			move_left = true;
 
 		if (new_pos == ((old_pos-1) & 3))
+			move_right = true;
+
+		if (new_fire && !old_fire)
+			fire = true;
+
+		if (autopilot)
+		{
+			if (move_left || move_right || fire) {
+				autopilot = false;
+				if (level > 0) {
+					reset_blocks = true;
+					return;
+				}
+			}
+
+			int x = 0;
+			switch (autopilot_state) {
+				case 0: x = 24; break;
+				case 1: x = 16; break;
+				case 2: x =  7; break;
+				case 3: x = 15; break;
+			}
+
+			if (player_x-1 <= invader_bullet_x && player_x+1 >= invader_bullet_x && invader_bullet_y > 20 && x == player_x)
+				autopilot_state = (autopilot_state+1) % 4;
+			else if (((iter + 0x800) & 0x3fff) == 0 && player_bullet_y > 0)
+				autopilot_state = (autopilot_state+1) % 4;
+
+			if (x < player_x)
+				move_left = (iter & 0xff) == 0;
+			else if (x > player_x)
+				move_right = (iter & 0xff) == 0;
+			else if (player_bullet_y < 0)
+				fire = (iter & 0xfff) == 0;
+		}
+
+		if (move_left)
+			move_player_left();
+
+		if (move_right)
 			move_player_right();
 
-		if (new_fire && !old_fire) {
+		if (fire) {
 			setpixel(player_bullet_x, player_bullet_y, 0, 0, 0);
 			player_bullet_x = player_x;
 			player_bullet_y = 29;
@@ -339,25 +395,25 @@ void game()
 				} else {
 					setpixel(invader_bullet_x, invader_bullet_y, 255, 0, 0);
 					if (invader_bullet_y >= 30 && player_x-1 <= invader_bullet_x && player_x+1 >= invader_bullet_x) {
+						autopilot = true;
 						reset_blocks = true;
 						return;
 					}
 				}
 			}
 
-			setled(1);
-
 			if (player_bullet_y >= 0)
 			{
-				setled(2);
-
 				setpixel(player_bullet_x, player_bullet_y, 0, 0, 0);
 				player_bullet_y--;
 
 				if (player_bullet_y == 0)
 					player_bullet_y = -1;
 
+				bool player_won = true;
+
 				for (int i = 0; i < 16; i++)
+				{
 					if (invaders[i].y+1 == player_bullet_y &&
 							invaders[i].x-1 <= player_bullet_x &&
 							invaders[i].x+1 >= player_bullet_x)
@@ -373,6 +429,13 @@ void game()
 						player_bullet_y = -10;
 					}
 
+					if (invaders[i].y > 0)
+						player_won = false;
+				}
+
+				if (player_won)
+					return;
+
 				if (blocks[player_bullet_y] & (1 << player_bullet_x)) {
 					setpixel(player_bullet_x, player_bullet_y, 0, 0, 0);
 					blocks[player_bullet_y] &= ~(1 << player_bullet_x);
@@ -380,25 +443,9 @@ void game()
 				} else
 					setpixel(player_bullet_x, player_bullet_y, 255, 255, 255);
 			}
-			else
-			{
-				setled(3);
-
-				bool player_won = true;
-
-				for (int i = 0; i < 16; i++)
-					if (invaders[i].y > 0)
-						player_won = false;
-
-				setled(4);
-
-				if (player_won)
-					return;
-			}
-
-			setled(0);
 
 			if (move_invader(active_invader)) {
+				autopilot = true;
 				reset_blocks = true;
 				return;
 			}
@@ -415,5 +462,6 @@ void main()
 {
 	printf("Space Invaders!\n");
 	reset_blocks = true;
+	autopilot = true;
 	while (1) game();
 }
