@@ -2,6 +2,55 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+static inline void setled(int v)
+{
+	*(volatile uint32_t*)0x20000000 = v;
+}
+
+uint32_t level_screens[] = {
+	0b00010001110100010111010000100000,
+	0b00010001000100010100010000100000,
+	0b00010001100010100110010000100000,
+	0b00010001000010100100010000100000,
+	0b00011101110001000111011100100000,
+
+	0b00010001110100010111010000101000,
+	0b00010001000100010100010000101000,
+	0b00010001100010100110010000101000,
+	0b00010001000010100100010000101000,
+	0b00011101110001000111011100101000,
+
+	0b00100011101000101110100001010100,
+	0b00100010001000101000100001010100,
+	0b00100011000101001100100001010100,
+	0b00100010000101001000100001010100,
+	0b00111011100010001110111001010100,
+
+	0b01000111010001011101000010100010,
+	0b01000100010001010001000010100010,
+	0b01000110001010011001000010010100,
+	0b01000100001010010001000010010100,
+	0b01110111000100011101110010001000,
+
+	0b00100011101000101110100001000100,
+	0b00100010001000101000100001000100,
+	0b00100011000101001100100000101000,
+	0b00100010000101001000100000101000,
+	0b00111011100010001110111000010000,
+
+	0b01000111010001011101000010001010,
+	0b01000100010001010001000010001010,
+	0b01000110001010011001000001010010,
+	0b01000100001010010001000001010010,
+	0b01110111000100011101110000100010,
+
+	0b00100010101001010010111011001100,
+	0b00100010101101011010100010101100,
+	0b00101010101111011110110011101100,
+	0b00101010101011010110100011000000,
+	0b00010100101001010010111010101100
+};
+
 int level;
 int player_x;
 int player_bullet_x;
@@ -157,13 +206,11 @@ void move_player_left()
 	if (player_x > 0)
 		player_x--;
 
-	// setpixel(player_x-2, 31, 0, 0, 0);
 	setpixel(player_x-1, 31, 50, 100, 100);
 	setpixel(player_x+0, 31, 50, 100, 100);
 	setpixel(player_x+1, 31, 50, 100, 100);
 	setpixel(player_x+2, 31, 0, 0, 0);
 
-	// setpixel(player_x-1, 30, 0, 0, 0);
 	setpixel(player_x+0, 30, 50, 100, 100);
 	setpixel(player_x+1, 30, 0, 0, 0);
 }
@@ -177,16 +224,15 @@ void move_player_right()
 	setpixel(player_x-1, 31, 50, 100, 100);
 	setpixel(player_x+0, 31, 50, 100, 100);
 	setpixel(player_x+1, 31, 50, 100, 100);
-	// setpixel(player_x+2, 31, 0, 0, 0);
 
 	setpixel(player_x-1, 30, 0, 0, 0);
 	setpixel(player_x+0, 30, 50, 100, 100);
-	// setpixel(player_x+1, 30, 0, 0, 0);
 }
 
 void game()
 {
-	player_x = 0;
+	setled(1);
+
 	player_bullet_x = 0;
 	player_bullet_y = -1;
 
@@ -199,32 +245,51 @@ void game()
 	invader_max_y = 0;
 	next_invader_max_y = 0;
 
-	if (reset_blocks) {
+	if (reset_blocks)
 		level = 0;
+	else
+		level++;
+
+	for (int x = 0; x < 32; x++)
+	for (int y = 0; y < 32; y++)
+		if (y > 12 && y < 18 && level_screens[level*5+y-13] & (1 << (31-x)))
+			setpixel(x, y, 200, 200, 0);
+		else if (level == 0)
+			setpixel(x, y, 0, 0, 0);
+
+	while (level == 6)
+		asm volatile ("");
+
+	for (int i = 0; i < level; i++)
+	for (int x = 0; x < 4; x++)
+		setpixel(2 + i*6 + x, 0, 50, 50, 0);
+
+	for (int i = 0; i < 500000; i++)
+		asm volatile ("");
+
+	if (reset_blocks) {
 		place_barrier(3, 27);
 		place_barrier(11, 27);
 		place_barrier(20, 27);
 		place_barrier(28, 27);
 		reset_blocks = false;
-	} else {
-		level++;
 	}
 
 	for (int x = 0; x < 32; x++)
-	for (int y = 0; y < 32; y++)
+	for (int y = 1; y < 32; y++)
 		if (blocks[y] & (1 << x))
 			setpixel(x, y, 0, 50, 50);
 		else
 			setpixel(x, y, 0, 0, 0);
 
-	for (int x = 0; x < 32 && x < level; x++)
-		setpixel(x, 0, 200, 200, 0);
-
 	for (int x = 0; x < 4; x++)
 	for (int y = 0; y < 4; y++)
 		place_invader(4*x+y, 6 + 5*x, 2 + 4*y);
 
-	player_x = 10;
+	if (level == 0)
+		player_x = 10;
+	else
+		move_player_left();
 	move_player_right();
 
 	uint32_t ctrlbits = *(volatile uint32_t*)0x20000014;
@@ -254,7 +319,7 @@ void game()
 			player_bullet_y = 29;
 			setpixel(player_bullet_x, player_bullet_y, 255, 255, 255);
 		}
-		
+
 		asm volatile ("rdcycle %0" : "=r"(num_cycles_now));
 		if (num_cycles_now - num_cycles_last > 100000)
 		{
@@ -274,16 +339,18 @@ void game()
 				} else {
 					setpixel(invader_bullet_x, invader_bullet_y, 255, 0, 0);
 					if (invader_bullet_y >= 30 && player_x-1 <= invader_bullet_x && player_x+1 >= invader_bullet_x) {
-						for (int i = 0; i < 100000; i++)
-							asm volatile ("");
 						reset_blocks = true;
 						return;
 					}
 				}
 			}
 
+			setled(1);
+
 			if (player_bullet_y >= 0)
 			{
+				setled(2);
+
 				setpixel(player_bullet_x, player_bullet_y, 0, 0, 0);
 				player_bullet_y--;
 
@@ -315,22 +382,23 @@ void game()
 			}
 			else
 			{
+				setled(3);
+
 				bool player_won = true;
 
 				for (int i = 0; i < 16; i++)
 					if (invaders[i].y > 0)
 						player_won = false;
 
-				if (player_won) {
-					for (int i = 0; i < 100000; i++)
-						asm volatile ("");
+				setled(4);
+
+				if (player_won)
 					return;
-				}
 			}
 
+			setled(0);
+
 			if (move_invader(active_invader)) {
-				for (int i = 0; i < 100000; i++)
-					asm volatile ("");
 				reset_blocks = true;
 				return;
 			}
