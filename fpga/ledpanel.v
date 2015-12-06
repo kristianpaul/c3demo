@@ -25,9 +25,9 @@ module ledpanel (
 
 	always @(posedge clk) begin
 		if (wr_enable) begin
-			video_mem_r[{5'd31-wr_addr_x, 5'd31-wr_addr_y}] = wr_rgb_data[23:16];
-			video_mem_g[{5'd31-wr_addr_x, 5'd31-wr_addr_y}] = wr_rgb_data[15: 8];
-			video_mem_b[{5'd31-wr_addr_x, 5'd31-wr_addr_y}] = wr_rgb_data[ 7: 0];
+			video_mem_r[{5'd31-wr_addr_x, 5'd31-wr_addr_y}] <= wr_rgb_data[23:16];
+			video_mem_g[{5'd31-wr_addr_x, 5'd31-wr_addr_y}] <= wr_rgb_data[15: 8];
+			video_mem_b[{5'd31-wr_addr_x, 5'd31-wr_addr_y}] <= wr_rgb_data[ 7: 0];
 		end
 	end
 
