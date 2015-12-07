@@ -266,7 +266,7 @@ void game()
 			setpixel(x, y, 0, 0, 0);
 
 	if (level == 6) {
-		mysleep(10);
+		mysleep(3);
 		while (!autopilot)
 			mysleep(1);
 		reset_blocks = true;
