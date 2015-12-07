@@ -31,8 +31,9 @@ module c3demo (
 	inout PMOD2_1, PMOD2_2, PMOD2_3, PMOD2_4, PMOD2_7, PMOD2_8, PMOD2_9, PMOD2_10
 );
 	// 2048 32bit words = 8k bytes memory
+	// 1024 32bit words = 4k bytes memory
 	// 128 32bit words = 512 bytes memory
-	parameter BOOT_MEM_SIZE = 2048;
+	parameter BOOT_MEM_SIZE = 1024;
 
 	// wire dgb0, dbg1;
 	// always @* DEBUG0 = dbg0;
@@ -274,9 +275,10 @@ module c3demo (
 	(* keep *) wire [15:0] debug_data;
 
 	c3demo_debugger #(
-		.WIDTH(16),
-		.DEPTH(200),
-		.TRIGAT(50)
+		.WIDTH(18),
+		.DEPTH(256),
+		.TRIGAT(50),
+		.FREERUN(1)
 	) debugger (
 		.clk(clk),
 		.resetn(resetn),
@@ -350,12 +352,14 @@ module c3demo (
 		.mem_rdata (mem_rdata      )
 	);
 
-	assign debug_enable = mem_valid && mem_ready;
-	assign debug_trigger = (mem_addr & 32'hF000_0000) == 32'h1000_0000;
+	assign debug_enable = mem_valid && mem_ready && mem_instr;
+	assign debug_trigger = 1;
 	assign debug_data = {
-		mem_instr,         // debug_15 -> instr
-		|mem_wstrb,        // debug_14 -> wstrb
-		|mem_addr[31:12],  // debug_13 -> addr_hi
+		mem_addr[17],      // debug_17 -> addr_17
+		mem_addr[16],      // debug_16 -> addr_16
+		mem_addr[15],      // debug_15 -> addr_15
+		mem_addr[14],      // debug_14 -> addr_14
+		mem_addr[13],      // debug_13 -> addr_13
 		mem_addr[12],      // debug_12 -> addr_12
 		mem_addr[11],      // debug_11 -> addr_11
 		mem_addr[10],      // debug_10 -> addr_10
@@ -926,7 +930,8 @@ endmodule
 module c3demo_debugger #(
 	parameter WIDTH = 32,
 	parameter DEPTH = 256,
-	parameter TRIGAT = 64
+	parameter TRIGAT = 64,
+	parameter FREERUN = 0
 ) (
 	input clk,
 	input resetn,
@@ -974,9 +979,17 @@ module c3demo_debugger #(
 					memory[mem_pointer] <= data;
 					mem_pointer <= mem_pointer == DEPTH-1 ? 0 : mem_pointer+1;
 					if (!stop_counter) begin
-						if (trigger) begin
-							stop_counter <= DEPTH - TRIGAT - 2;
-							state <= state_triggered;
+						if (FREERUN) begin
+							if (dump_en) begin
+								state <= state_dump;
+								stop_counter <= DEPTH-1;
+								bytes_counter <= 0;
+							end
+						end else begin
+							if (trigger) begin
+								stop_counter <= DEPTH - TRIGAT - 2;
+								state <= state_triggered;
+							end
 						end
 					end else
 						stop_counter <= stop_counter - 1;
