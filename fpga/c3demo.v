@@ -954,6 +954,7 @@ module c3demo_debugger #(
 	reg [WIDTH-1:0] memory [0:DEPTH-1];
 	reg [DEPTH_BITS-1:0] mem_pointer, stop_counter;
 	reg [BYTES_BITS-1:0] bytes_counter;
+	reg dump_en_r;
 
 	reg [1:0] state;
 	localparam state_running   = 0;
@@ -968,10 +969,13 @@ module c3demo_debugger #(
 
 	always @(posedge clk) begin
 		dump_valid <= 0;
+		if (dump_en)
+			dump_en_r <= 1;
 		if (!resetn) begin
 			mem_pointer <= 0;
 			stop_counter <= DEPTH-1;
 			state <= state_running;
+			dump_en_r <= 0;
 		end else
 		case (state)
 			state_running: begin
@@ -980,7 +984,7 @@ module c3demo_debugger #(
 					mem_pointer <= mem_pointer == DEPTH-1 ? 0 : mem_pointer+1;
 					if (!stop_counter) begin
 						if (FREERUN) begin
-							if (dump_en) begin
+							if (dump_en_r) begin
 								state <= state_dump;
 								stop_counter <= DEPTH-1;
 								bytes_counter <= 0;
@@ -1006,7 +1010,7 @@ module c3demo_debugger #(
 				end
 			end
 			state_waitdump: begin
-				if (dump_en)
+				if (dump_en_r)
 					state <= state_dump;
 				stop_counter <= DEPTH-1;
 				bytes_counter <= 0;
@@ -1020,6 +1024,7 @@ module c3demo_debugger #(
 						if (!stop_counter) begin
 							stop_counter <= DEPTH-1;
 							state <= state_running;
+							dump_en_r <= 0;
 						end
 					end else begin
 						bytes_counter <= bytes_counter + 1;
