@@ -113,7 +113,7 @@ void main()
 		if (ch == 0 || ch == '@')
 		{
 			if (bytecount) {
-				console_puts("Written 0x");
+				console_puts("\nWritten 0x");
 				console_puth(bytecount);
 				console_puts(" bytes at 0x");
 				console_puth((uint32_t)memcursor);
@@ -142,6 +142,8 @@ void main()
 			char ch2 = console_getc();
 
 			if (ishex(ch2)) {
+				if (bytecount % 1024 == 0)
+					console_putc('.');
 				memcursor[bytecount++] = (hex2int(ch) << 4) | hex2int(ch2);
 				continue;
 			}
