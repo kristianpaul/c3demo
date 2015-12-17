@@ -36,6 +36,11 @@ const uint32_t splash_screen[] = {
 	0b00000000000000000000000000000000
 };
 
+static inline void setled(int v)
+{
+	*(volatile uint32_t*)0x20000000 = v;
+}
+
 static int console_getc()
 {
 	while (1) {
@@ -91,7 +96,7 @@ int hex2int(char ch)
 
 void main()
 {
-	*(volatile uint32_t*)0x20000000 = 7; // LEDs On
+	setled(7); // LEDs OOO
 
 	for (int x = 0; x < 32; x++)
 	for (int y = 0; y < 32; y++)
@@ -100,7 +105,7 @@ void main()
 		else
 			setpixel(x, y, 6*(x+1), 6*(y+1), 0);
 
-	*(volatile uint32_t*)0x20000000 = 0; // LEDs Off
+	setled(1); // LEDs ..O
 
 	console_puts(".\nBootloader> " + 2);
 	uint8_t *memcursor = (uint8_t*)(64 * 1024);
@@ -108,7 +113,11 @@ void main()
 
 	while (1)
 	{
+		setled(2); // LEDs .O.
+
 		char ch = console_getc();
+
+		setled(3); // LEDs .OO
 
 		if (ch == 0 || ch == '@')
 		{
@@ -137,6 +146,8 @@ void main()
 			continue;
 		}
 
+		setled(4); // LEDs O..
+
 		if (ishex(ch))
 		{
 			char ch2 = console_getc();
@@ -153,10 +164,14 @@ void main()
 			goto prompt;
 		}
 
+		setled(5); // LEDs O.O
+
 		if (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n')
 			continue;
 
 	prompt:
+		setled(6); // LEDs OO.
+
 		console_putc(ch);
 		console_puts(".\nBootloader> " + 1);
 	}
