@@ -1,32 +1,43 @@
 [*]
 [*] GTKWave Analyzer v3.3.65 (w)1999-2015 BSI
-[*] Mon Dec  7 10:06:25 2015
+[*] Mon Dec 21 18:15:53 2015
 [*]
 [dumpfile] "/home/clifford/Work/handicraft/2015/c3demo/fpga/debug.vcd"
-[dumpfile_mtime] "Mon Dec  7 10:05:57 2015"
-[dumpfile_size] 16987
+[dumpfile_mtime] "Mon Dec 21 18:14:39 2015"
+[dumpfile_size] 44952
 [savefile] "/home/clifford/Work/handicraft/2015/c3demo/fpga/debug.gtkw"
 [timestart] 0
 [size] 1000 600
 [pos] -1 -1
-*-6.275350 80 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-7.275350 73 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [sst_width] 223
 [signals_width] 118
 [sst_expanded] 1
 [sst_vpaned_height] 160
-@808022
-#{addr_[17:0]} addr_17 addr_16 addr_15 addr_14 addr_13 addr_12 addr_11 addr_10 addr_9 addr_8 addr_7 addr_6 addr_5 addr_4 addr_3 addr_2 addr_1 addr_0
-@1001200
--group_end
-@20000
--
--
--
-@800022
-#{addr_[17:0]} addr_17 addr_16 addr_15 addr_14 addr_13 addr_12 addr_11 addr_10 addr_9 addr_8 addr_7 addr_6 addr_5 addr_4 addr_3 addr_2 addr_1 addr_0
-@1001200
--group_end
+@28
+mem_valid
 @29
+mem_ready
+@28
+mem_instr
+@200
+-
+@28
+mem_wstrb_0
+mem_wstrb_1
+mem_wstrb_2
+mem_wstrb_3
+@200
+-
+@28
+addr_hi
+@800022
+#{addr_[17:0]} addr_16 addr_15 addr_14 addr_13 addr_12 addr_11 addr_10 addr_9 addr_8 addr_7 addr_6 addr_5 addr_4 addr_3 addr_2 addr_1 addr_0
+@1001200
+-group_end
+@200
+-
+@28
 clock
 [pattern_trace] 1
 [pattern_trace] 0
