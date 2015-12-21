@@ -1,6 +1,14 @@
 // Synplify Pro is not comfortable inferring iCE40 4K brams for
 // clock domain crossing FIFOs. Yosys does not have this issue.
-`define BEHAVIORAL_FIFO_MODEL
+// `define NO_BEHAVIORAL_FIFO_MODEL
+
+// Synplify Pro and LSE both have troubles implementing memory[]
+// with BRAMs. This is a hack for comparing the toolchains.
+// `define MINI_BOOT_MEM
+
+// Synplify Pro and LSE both have troubles implementing the frame
+// buffer with BRAMs. This is a hack for comparing the toolchains.
+// `define NO_LEDPANEL
 
 // Divide the 12 MHz by this power of two: 0=12MHz, 1=6MHz, 2=3MHz, ...
 `define POW2CLOCKDIV 1
@@ -33,7 +41,11 @@ module c3demo (
 	// 2048 32bit words = 8k bytes memory
 	// 1024 32bit words = 4k bytes memory
 	// 128 32bit words = 512 bytes memory
-	parameter BOOT_MEM_SIZE = 1024;
+`ifndef MINI_BOOT_MEM
+	localparam BOOT_MEM_SIZE = 1024;
+`else
+	localparam BOOT_MEM_SIZE = 4;
+`endif
 
 	// wire dgb0, dbg1;
 	// always @* DEBUG0 = dbg0;
@@ -303,6 +315,7 @@ module c3demo (
 	reg [4:0] led_wr_addr_y = 0;
 	reg [23:0] led_wr_rgb_data;
 
+`ifndef NO_LEDPANEL
 	ledpanel ledpanel (
 		.clk        (clk            ),
 		.wr_enable  (led_wr_enable  ),
@@ -324,6 +337,7 @@ module c3demo (
 		.PANEL_STB  (PANEL_STB),
 		.PANEL_OE   (PANEL_OE )
 	);
+`endif
 
 
 	// -------------------------------
@@ -407,7 +421,9 @@ module c3demo (
 			send_ep2_valid <= 0;
 
 			if (prog_mem_active) begin
+`ifndef MINI_BOOT_MEM
 				memory[prog_mem_addr] <= prog_mem_data;
+`endif
 			end
 		end else
 		if (mem_valid && !mem_ready) begin
@@ -415,10 +431,12 @@ module c3demo (
 			case (1)
 				(mem_addr >> 2) < BOOT_MEM_SIZE: begin
 					if (mem_wstrb) begin
+`ifndef MINI_BOOT_MEM
 						if (mem_wstrb[0]) memory[mem_addr >> 2][ 7: 0] <= mem_wdata[ 7: 0];
 						if (mem_wstrb[1]) memory[mem_addr >> 2][15: 8] <= mem_wdata[15: 8];
 						if (mem_wstrb[2]) memory[mem_addr >> 2][23:16] <= mem_wdata[23:16];
 						if (mem_wstrb[3]) memory[mem_addr >> 2][31:24] <= mem_wdata[31:24];
+`endif
 					end else begin
 						mem_rdata <= memory[mem_addr >> 2];
 					end
@@ -624,7 +642,7 @@ module c3demo_crossclkfifo #(
 	reg [ABITS-1:0] out_opos = 0, out_ipos = 0;
 
 
-`ifdef BEHAVIORAL_FIFO_MODEL
+`ifndef NO_BEHAVIORAL_FIFO_MODEL
 
 	// Behavioral model for the clock domain crossing fifo
 
@@ -665,7 +683,7 @@ module c3demo_crossclkfifo #(
 
 	assign out_data = out_nempty ? out_data_d : 0;
 
-`else /* BEHAVIORAL_FIFO_MODEL */
+`else /* NO_BEHAVIORAL_FIFO_MODEL */
 
 	// Structural model for the clock domain crossing fifo
 
@@ -744,7 +762,7 @@ module c3demo_crossclkfifo #(
 	assign memory_raddr = (out_pop && out_nempty) ? next_opos : out_opos;
 	assign out_data = out_nempty ? out_data_d : 0;
 
-`endif /* BEHAVIORAL_FIFO_MODEL */
+`endif /* NO_BEHAVIORAL_FIFO_MODEL */
 
 
 	// clock domain crossing of ipos
