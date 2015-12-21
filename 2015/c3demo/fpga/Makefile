@@ -46,7 +46,7 @@ c3demo.bin: c3demo.txt
 	icepack c3demo.txt c3demo.bin
 
 timestamp:
-	find . -type f -printf '%%T@ %%P\n' | sort | tail -n1
+	find . -type f -printf '%T@ %P\n' | sort | tail -n1
 
 stat_blif:
 	sed -f sb_normalize.sed < c3demo.blif > c3demo_n.blif
@@ -55,7 +55,7 @@ stat_blif:
 
 stat_vlog:
 	sed -f sb_normalize.sed < synth.v > synth_n.v
-	yosys -p stat synth_n.v
+	yosys -p 'hierarchy -top c3demo; stat' synth_n.v
 	rm -f synth_n.v
 
 prog_sram: c3demo.bin
@@ -80,7 +80,16 @@ debug:
 	sedexpr="$$( grep '//.*debug_.*->' c3demo.v | sed 's,.*\(debug_\),s/\1,; s, *-> *, /,; s, *$$, /;,;'; )"; \
 	$(SSH_RASPI) 'icoprog -V18' | sed -e "$$sedexpr" > debug.vcd
 
+clean:
+	rm -f c3demo.bin
+	rm -f c3demo.blif
+	rm -f c3demo.txt
+	rm -f firmware.bin
+	rm -f firmware.elf
+	rm -f firmware.hex
+	rm -f firmware.map
+
 .SECONDARY:
 .PHONY: timestamp stat_blif stat_vlog
-.PHONY: prog_sram prog_flash prog_firmware reset_halt reset_boot console debug
+.PHONY: prog_sram prog_flash prog_firmware reset_halt reset_boot console debug clean
 
