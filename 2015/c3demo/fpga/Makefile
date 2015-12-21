@@ -78,7 +78,7 @@ console:
 
 debug:
 	sedexpr="$$( grep '//.*debug_.*->' c3demo.v | sed 's,.*\(debug_\),s/\1,; s, *-> *, /,; s, *$$, /;,;'; )"; \
-	$(SSH_RASPI) 'icoprog -V18' | sed -e "$$sedexpr" > debug.vcd
+	$(SSH_RASPI) 'icoprog -V26' | sed -e "$$sedexpr" > debug.vcd
 
 clean:
 	rm -f c3demo.bin
