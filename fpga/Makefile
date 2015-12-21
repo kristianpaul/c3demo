@@ -45,6 +45,11 @@ c3demo.txt: c3demo.pcf c3demo.blif
 c3demo.bin: c3demo.txt
 	icepack c3demo.txt c3demo.bin
 
+stat: c3demo.blif
+	sed -f sb_normalize.sed < c3demo.blif > c3demo_n.blif
+	yosys -p stat c3demo_n.blif
+	rm -f c3demo_n.blif
+
 prog_sram: c3demo.bin
 	$(SSH_RASPI) 'icoprog -p' < c3demo.bin
 
@@ -68,5 +73,5 @@ debug:
 	$(SSH_RASPI) 'icoprog -V18' | sed -e "$$sedexpr" > debug.vcd
 
 .SECONDARY:
-.PHONY: prog_sram prog_flash prog_firmware reset_halt reset_boot console debug
+.PHONY: stat prog_sram prog_flash prog_firmware reset_halt reset_boot console debug
 
