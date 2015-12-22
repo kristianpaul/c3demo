@@ -284,10 +284,10 @@ module c3demo (
 	(* keep *) wire debug_enable;
 	(* keep *) wire debug_trigger;
 	(* keep *) wire debug_triggered;
-	(* keep *) wire [25:0] debug_data;
+	(* keep *) wire [29:0] debug_data;
 
 	c3demo_debugger #(
-		.WIDTH(26),
+		.WIDTH(30),
 		.DEPTH(256),
 		.TRIGAT(50),
 		.FREERUN(1)
@@ -370,32 +370,36 @@ module c3demo (
 	assign debug_trigger = 1;
 
 	assign debug_data = {
-		mem_valid && mem_wstrb[3],  // debug_25 -> mem_wstrb_3
-		mem_valid && mem_wstrb[2],  // debug_24 -> mem_wstrb_2
-		mem_valid && mem_wstrb[1],  // debug_23 -> mem_wstrb_1
-		mem_valid && mem_wstrb[0],  // debug_22 -> mem_wstrb_0
-		mem_valid,                  // debug_21 -> mem_valid
-		mem_ready,                  // debug_20 -> mem_ready
-		mem_instr,                  // debug_19 -> mem_instr
-		|mem_addr[31:18],           // debug_18 -> addr_hi
-		mem_addr[17],               // debug_17 -> addr_17
-		mem_addr[16],               // debug_16 -> addr_16
-		mem_addr[15],               // debug_15 -> addr_15
-		mem_addr[14],               // debug_14 -> addr_14
-		mem_addr[13],               // debug_13 -> addr_13
-		mem_addr[12],               // debug_12 -> addr_12
-		mem_addr[11],               // debug_11 -> addr_11
-		mem_addr[10],               // debug_10 -> addr_10
-		mem_addr[9],                // debug_9  -> addr_9
-		mem_addr[8],                // debug_8  -> addr_8
-		mem_addr[7],                // debug_7  -> addr_7
-		mem_addr[6],                // debug_6  -> addr_6
-		mem_addr[5],                // debug_5  -> addr_5
-		mem_addr[4],                // debug_4  -> addr_4
-		mem_addr[3],                // debug_3  -> addr_3
-		mem_addr[2],                // debug_2  -> addr_2
-		mem_addr[1],                // debug_1  -> addr_1
-		mem_addr[0]                 // debug_0  -> addr_0
+		mem_wstrb[3],      // debug_29 -> mem_wstrb_3
+		mem_wstrb[2],      // debug_28 -> mem_wstrb_2
+		mem_wstrb[1],      // debug_27 -> mem_wstrb_1
+		mem_wstrb[0],      // debug_26 -> mem_wstrb_0
+		mem_valid,         // debug_25 -> mem_valid
+		mem_ready,         // debug_24 -> mem_ready
+		mem_instr,         // debug_23 -> mem_instr
+		mem_addr[31],      // debug_22 -> addr_31
+		mem_addr[30],      // debug_21 -> addr_30
+		mem_addr[29],      // debug_20 -> addr_29
+		mem_addr[28],      // debug_19 -> addr_28
+		|mem_addr[31:18],  // debug_18 -> addr_hi
+		mem_addr[17],      // debug_17 -> addr_17
+		mem_addr[16],      // debug_16 -> addr_16
+		mem_addr[15],      // debug_15 -> addr_15
+		mem_addr[14],      // debug_14 -> addr_14
+		mem_addr[13],      // debug_13 -> addr_13
+		mem_addr[12],      // debug_12 -> addr_12
+		mem_addr[11],      // debug_11 -> addr_11
+		mem_addr[10],      // debug_10 -> addr_10
+		mem_addr[9],       // debug_9  -> addr_9
+		mem_addr[8],       // debug_8  -> addr_8
+		mem_addr[7],       // debug_7  -> addr_7
+		mem_addr[6],       // debug_6  -> addr_6
+		mem_addr[5],       // debug_5  -> addr_5
+		mem_addr[4],       // debug_4  -> addr_4
+		mem_addr[3],       // debug_3  -> addr_3
+		mem_addr[2],       // debug_2  -> addr_2
+		mem_addr[1],       // debug_1  -> addr_1
+		mem_addr[0]        // debug_0  -> addr_0
 	};
 
 
