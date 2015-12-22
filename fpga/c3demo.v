@@ -576,7 +576,7 @@ module c3demo_clkgen (
 	// 	.LATCHINPUTVALUE(LATCHINPUTVALUE)
 	// );
 
-	reg [`POW2CLOCKDIV:0] divided_clock = 0;
+	reg [`POW2CLOCKDIV:0] divided_clock = 'b0x;
 	always @* divided_clock[0] = CLK12MHZ;
 
 	genvar i;
@@ -681,7 +681,7 @@ module c3demo_crossclkfifo #(
 	// output side of fifo
 
 	wire [ABITS-1:0] next_opos = out_opos == DEPTH-1 ? 0 : out_opos + 1;
-	reg [WIDTH-1:0] out_data_d = 0;
+	reg [WIDTH-1:0] out_data_d;
 
 	always @(posedge out_clk) begin
 		if (out_pop && out_nempty) begin
