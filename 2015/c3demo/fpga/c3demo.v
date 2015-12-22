@@ -279,35 +279,6 @@ module c3demo (
 
 
 	// -------------------------------
-	// On-chip logic analyzer (send ep1, trig1)
-
-	(* keep *) wire debug_enable;
-	(* keep *) wire debug_trigger;
-	(* keep *) wire debug_triggered;
-	(* keep *) wire [29:0] debug_data;
-
-	c3demo_debugger #(
-		.WIDTH(30),
-		.DEPTH(256),
-		.TRIGAT(50),
-		.FREERUN(1)
-	) debugger (
-		.clk(clk),
-		.resetn(resetn),
-
-		.enable(debug_enable),
-		.trigger(debug_trigger),
-		.triggered(debug_triggered),
-		.data(debug_data),
-
-		.dump_en(trigger_1),
-		.dump_valid(send_ep1_valid),
-		.dump_ready(send_ep1_ready),
-		.dump_data(send_ep1_data)
-	);
-
-
-	// -------------------------------
 	// LED Panel Driver
 
 	reg led_wr_enable;
@@ -343,6 +314,7 @@ module c3demo (
 	// -------------------------------
 	// PicoRV32 Core
 
+	wire cpu_trap;
 	wire mem_valid;
 	wire mem_instr;
 	wire [31:0] mem_addr;
@@ -357,6 +329,7 @@ module c3demo (
 	picorv32 cpu (
 		.clk       (clk            ),
 		.resetn    (resetn_picorv32),
+		.trap      (cpu_trap       ),
 		.mem_valid (mem_valid      ),
 		.mem_instr (mem_instr      ),
 		.mem_ready (mem_ready      ),
@@ -366,10 +339,40 @@ module c3demo (
 		.mem_rdata (mem_rdata      )
 	);
 
+
+	// -------------------------------
+	// On-chip logic analyzer (send ep1, trig1)
+
+	wire debug_enable;
+	wire debug_trigger;
+	wire debug_triggered;
+	wire [30:0] debug_data;
+
+	c3demo_debugger #(
+		.WIDTH(31),
+		.DEPTH(256),
+		.TRIGAT(192),
+		.MODE("FREE_RUNNING")
+	) debugger (
+		.clk(clk),
+		.resetn(resetn),
+
+		.enable(debug_enable),
+		.trigger(debug_trigger),
+		.triggered(debug_triggered),
+		.data(debug_data),
+
+		.dump_en(trigger_1),
+		.dump_valid(send_ep1_valid),
+		.dump_ready(send_ep1_ready),
+		.dump_data(send_ep1_data)
+	);
+
 	assign debug_enable = 1;
 	assign debug_trigger = 1;
 
 	assign debug_data = {
+		cpu_trap,          // debug_30 -> cpu_trap
 		mem_wstrb[3],      // debug_29 -> mem_wstrb_3
 		mem_wstrb[2],      // debug_28 -> mem_wstrb_2
 		mem_wstrb[1],      // debug_27 -> mem_wstrb_1
@@ -962,7 +965,7 @@ module c3demo_debugger #(
 	parameter WIDTH = 32,
 	parameter DEPTH = 256,
 	parameter TRIGAT = 64,
-	parameter FREERUN = 0
+	parameter MODE = "NORMAL"
 ) (
 	input clk,
 	input resetn,
@@ -993,6 +996,18 @@ module c3demo_debugger #(
 	localparam state_waitdump  = 2;
 	localparam state_dump      = 3;
 
+	localparam mode_normal        = MODE == "NORMAL";         // first trigger after dump_en
+	localparam mode_free_running  = MODE == "FREE_RUNNING";   // trigger on dump_en
+	localparam mode_first_trigger = MODE == "FIRST_TRIGGER";  // block on first trigger
+	localparam mode_last_trigger  = MODE == "LAST_TRIGGER";   // wait for last trigger
+
+	initial begin
+		if (!{mode_normal, mode_free_running, mode_first_trigger, mode_last_trigger}) begin
+			$display("Invalid debugger MODE: %s", MODE);
+			$finish;
+		end
+	end
+
 	always @(posedge clk)
 		dump_data <= memory[mem_pointer] >> (8*bytes_counter);
 	
@@ -1014,14 +1029,14 @@ module c3demo_debugger #(
 					memory[mem_pointer] <= data;
 					mem_pointer <= mem_pointer == DEPTH-1 ? 0 : mem_pointer+1;
 					if (!stop_counter) begin
-						if (FREERUN) begin
+						if (mode_free_running) begin
 							if (dump_en_r) begin
 								state <= state_dump;
 								stop_counter <= DEPTH-1;
 								bytes_counter <= 0;
 							end
 						end else begin
-							if (trigger) begin
+							if (trigger && (dump_en_r || !mode_normal)) begin
 								stop_counter <= DEPTH - TRIGAT - 2;
 								state <= state_triggered;
 							end
@@ -1035,6 +1050,9 @@ module c3demo_debugger #(
 					memory[mem_pointer] <= data;
 					mem_pointer <= mem_pointer == DEPTH-1 ? 0 : mem_pointer+1;
 					stop_counter <= stop_counter - 1;
+					if (mode_last_trigger && trigger) begin
+						stop_counter <= DEPTH - TRIGAT - 2;
+					end
 					if (!stop_counter) begin
 						state <= state_waitdump;
 					end
