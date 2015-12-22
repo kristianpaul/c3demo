@@ -177,9 +177,9 @@ bool move_invader(int n)
 	invaders[n].x = x;
 	invaders[n].y = y;
 
-	if (y < 31) {
-		if (x < 31) blocks[y+1] &= ~(1 << (x+1));
-		if (x >  0) blocks[y+1] &= ~(1 << (x-1));
+	if (0 <= y && y < 31) {
+		if (0 <= x && x <  31) blocks[y+1] &= ~(1 << (x+1));
+		if (0 <  x && x <= 31) blocks[y+1] &= ~(1 << (x-1));
 	}
 
 	if (next_invader_max_y < y)
