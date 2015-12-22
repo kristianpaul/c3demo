@@ -40,7 +40,7 @@ c3demo.blif: c3demo.v ledpanel.v picorv32.v firmware.hex
 	yosys -v2 -p 'synth_ice40 -top c3demo -blif c3demo.blif' c3demo.v ledpanel.v picorv32.v
 
 c3demo.txt: c3demo.pcf c3demo.blif
-	arachne-pnr -s 1 -d 8k -p c3demo.pcf -o c3demo.txt c3demo.blif
+	arachne-pnr -s 3 -d 8k -p c3demo.pcf -o c3demo.txt c3demo.blif
 
 c3demo.bin: c3demo.txt
 	icepack c3demo.txt c3demo.bin
@@ -78,7 +78,7 @@ console:
 
 debug:
 	sedexpr="$$( grep '//.*debug_.*->' c3demo.v | sed 's,.*\(debug_\),s/\1,; s, *-> *, /,; s, *$$, /;,;'; )"; \
-	$(SSH_RASPI) 'icoprog -V26' | sed -e "$$sedexpr" > debug.vcd
+	$(SSH_RASPI) 'icoprog -V30' | sed -e "$$sedexpr" > debug.vcd
 
 clean:
 	rm -f c3demo.bin
