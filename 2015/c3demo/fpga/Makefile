@@ -37,7 +37,7 @@ firmware.hex: makehex.py firmware.bin
 	@echo "Firmware size: $$(grep .. firmware.hex | wc -l) / $$(wc -l < firmware.hex)"
 
 c3demo.blif: c3demo.v ledpanel.v picorv32.v firmware.hex
-	yosys -v2 -p 'synth_ice40 -top c3demo -blif c3demo.blif' c3demo.v ledpanel.v picorv32.v
+	yosys -v2 -p 'synth_ice40 -abc2 -top c3demo -blif c3demo.blif' c3demo.v ledpanel.v picorv32.v
 
 c3demo.txt: c3demo.pcf c3demo.blif
 	arachne-pnr -s 3 -d 8k -p c3demo.pcf -o c3demo.txt c3demo.blif

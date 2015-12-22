@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -ex
-bash firmware.sh nopush
+make firmware.hex
 
 mode=1
 case $mode in
