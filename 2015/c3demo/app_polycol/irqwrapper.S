@@ -28,17 +28,27 @@ custom0 \rd,\rs,0,5
 .endm
 
 .section .text
-.global enable_timer
+.global reset_timer
+.global maskirq
+.global unmaskirq
 .global irq_wrapper
 .global irq
 
 .set irq_regs, 0x20
 .set irq_stack, 0x200
 
-enable_timer:
+reset_timer:
 	lui t0, %hi(20000)
 	addi t0, t0, %lo(20000)
 	timer zero, t0
+	ret
+
+maskirq:
+	addi t0, zero, -1
+	maskirq zero, t0
+	ret
+
+unmaskirq:
 	maskirq zero, zero
 	ret
 
