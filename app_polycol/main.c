@@ -394,7 +394,7 @@ void check()
 	}
 
 	if (_end != 0xdeadbeef) {
-		printf("Magic _end mark got overridden: %x\n", _end);
+		printf("Magic _end mark got overwritten: %x\n", _end);
 		abort();
 	}
 }
