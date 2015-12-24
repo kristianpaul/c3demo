@@ -39,15 +39,15 @@ void main()
 		for (int i = 0; i < 8; i++)
 		{
 			if (getpmod(k, i)) {
-				setpixel(4*i + 1, k*6 + 0, 255, 0, 0);
-				setpixel(4*i + 2, k*6 + 0, 255, 0, 0);
-				setpixel(4*i + 1, k*6 + 1, 255, 0, 0);
-				setpixel(4*i + 2, k*6 + 1, 255, 0, 0);
+				setpixel(31 - 4*i - 1, k*6 + 0, 255, 0, 0);
+				setpixel(31 - 4*i - 2, k*6 + 0, 255, 0, 0);
+				setpixel(31 - 4*i - 1, k*6 + 1, 255, 0, 0);
+				setpixel(31 - 4*i - 2, k*6 + 1, 255, 0, 0);
 			} else {
-				setpixel(4*i + 1, k*6 + 0, 0, 0, 255);
-				setpixel(4*i + 2, k*6 + 0, 0, 0, 255);
-				setpixel(4*i + 1, k*6 + 1, 0, 0, 255);
-				setpixel(4*i + 2, k*6 + 1, 0, 0, 255);
+				setpixel(31 - 4*i - 1, k*6 + 0, 0, 0, 255);
+				setpixel(31 - 4*i - 2, k*6 + 0, 0, 0, 255);
+				setpixel(31 - 4*i - 1, k*6 + 1, 0, 0, 255);
+				setpixel(31 - 4*i - 2, k*6 + 1, 0, 0, 255);
 			}
 		}
 	}
