@@ -304,33 +304,51 @@ void game()
 		move_player_left();
 	move_player_right();
 
-	uint32_t ctrlbits = *(volatile uint32_t*)0x20000014;
-	bool old_fire = false;
-	int old_pos = ctrlbits >> 6;
-	old_pos = old_pos ^ (old_pos >> 1);
+	*(volatile uint32_t*)0x20000010 = 0;
+	*(volatile uint32_t*)0x20000020 = 0;
+	*(volatile uint32_t*)0x20000030 = 0;
+	*(volatile uint32_t*)0x20000040 = 0;
 
+	uint8_t ctrlbits[8];
+	for (int k = 0; k < 8; k++)
+		ctrlbits[k] = ((*(volatile uint32_t*)(0x20000014 + 0x10*(k / 2))) >> ((k % 2) ? 5 : 1)) & 7;
+	
 	uint32_t num_cycles_now, num_cycles_last;
 	asm volatile ("rdcycle %0" : "=r"(num_cycles_last));
 
 	for (int iter = 0;; iter++)
 	{
-		ctrlbits = *(volatile uint32_t*)0x20000014;
-		bool new_fire = !((ctrlbits >> 5) & 1);
-		int new_pos = ctrlbits >> 6;
-		new_pos = new_pos ^ (new_pos >> 1);
-
 		bool move_left = false;
 		bool move_right = false;
 		bool fire = false;
 
-		if (new_pos == ((old_pos+1) & 3))
-			move_left = true;
+		for (int k = 0; k < 8; k++)
+		{
+			uint8_t bits = ((*(volatile uint32_t*)(0x20000014 + 0x10*(k / 2))) >> ((k % 2) ? 5 : 1)) & 7;
 
-		if (new_pos == ((old_pos-1) & 3))
-			move_right = true;
+			if (bits == ctrlbits[k])
+				continue;
 
-		if (new_fire && !old_fire)
-			fire = true;
+			int old_pos = ctrlbits[k] >> 1;
+			int new_pos = bits >> 1;
+
+			old_pos = old_pos ^ (old_pos >> 1);
+			new_pos = new_pos ^ (new_pos >> 1);
+
+			bool old_fire = (ctrlbits[k] & 1) == 0;
+			bool new_fire = (bits & 1) == 0;
+
+			if (new_pos == ((old_pos+1) & 3))
+				move_left = true;
+
+			if (new_pos == ((old_pos-1) & 3))
+				move_right = true;
+
+			if (new_fire && !old_fire)
+				fire = true;
+
+			ctrlbits[k] = bits;
+		}
 
 		if (autopilot)
 		{
@@ -452,9 +470,6 @@ void game()
 
 			active_invader = (active_invader + 1) % 16;
 		}
-
-		old_pos = new_pos;
-		old_fire = new_fire;
 	}
 }
 
