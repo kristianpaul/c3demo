@@ -36,7 +36,9 @@ module c3demo (
 
 	// PMODS
 	inout PMOD1_1, PMOD1_2, PMOD1_3, PMOD1_4, PMOD1_7, PMOD1_8, PMOD1_9, PMOD1_10,
-	inout PMOD2_1, PMOD2_2, PMOD2_3, PMOD2_4, PMOD2_7, PMOD2_8, PMOD2_9, PMOD2_10
+	inout PMOD2_1, PMOD2_2, PMOD2_3, PMOD2_4, PMOD2_7, PMOD2_8, PMOD2_9, PMOD2_10,
+	inout PMOD3_1, PMOD3_2, PMOD3_3, PMOD3_4, PMOD3_7, PMOD3_8, PMOD3_9, PMOD3_10,
+	inout PMOD4_1, PMOD4_2, PMOD4_3, PMOD4_4, PMOD4_7, PMOD4_8, PMOD4_9, PMOD4_10
 );
 	// 2048 32bit words = 8k bytes memory
 	// 1024 32bit words = 4k bytes memory
@@ -75,6 +77,12 @@ module c3demo (
 	reg [7:0] pmod2_dir, pmod2_dout;
 	wire [7:0] pmod2_din;
 
+	reg [7:0] pmod3_dir, pmod3_dout;
+	wire [7:0] pmod3_din;
+
+	reg [7:0] pmod4_dir, pmod4_dout;
+	wire [7:0] pmod4_din;
+
 	SB_IO #(
 		.PIN_TYPE(6'b 1010_01),
 		.PULLUP(1'b 0)
@@ -88,6 +96,16 @@ module c3demo (
 		.OUTPUT_ENABLE(pmod2_dir),
 		.D_OUT_0(pmod2_dout),
 		.D_IN_0(pmod2_din)
+	), pmod3_io [7:0] (
+		.PACKAGE_PIN({PMOD3_10, PMOD3_9, PMOD3_8, PMOD3_7, PMOD3_4, PMOD3_3, PMOD3_2, PMOD3_1}),
+		.OUTPUT_ENABLE(pmod3_dir),
+		.D_OUT_0(pmod3_dout),
+		.D_IN_0(pmod3_din)
+	), pmod4_io [7:0] (
+		.PACKAGE_PIN({PMOD4_10, PMOD4_9, PMOD4_8, PMOD4_7, PMOD4_4, PMOD4_3, PMOD4_2, PMOD4_1}),
+		.OUTPUT_ENABLE(pmod4_dir),
+		.D_OUT_0(pmod4_dout),
+		.D_IN_0(pmod4_din)
 	);
 
 
@@ -513,11 +531,17 @@ module c3demo (
 						if (mem_addr[7:0] == 8'h 14) pmod1_dout <= mem_wdata;
 						if (mem_addr[7:0] == 8'h 20) pmod2_dir <= mem_wdata;
 						if (mem_addr[7:0] == 8'h 24) pmod2_dout <= mem_wdata;
+						if (mem_addr[7:0] == 8'h 30) pmod3_dir <= mem_wdata;
+						if (mem_addr[7:0] == 8'h 34) pmod3_dout <= mem_wdata;
+						if (mem_addr[7:0] == 8'h 40) pmod4_dir <= mem_wdata;
+						if (mem_addr[7:0] == 8'h 44) pmod4_dout <= mem_wdata;
 					end
 					mem_rdata <= 0;
 					if (mem_addr[7:0] == 8'h 00) mem_rdata <= {DEBUG1, DEBUG0, LED3, LED2, LED1};
 					if (mem_addr[7:0] == 8'h 14) mem_rdata <= pmod1_din;
 					if (mem_addr[7:0] == 8'h 24) mem_rdata <= pmod2_din;
+					if (mem_addr[7:0] == 8'h 34) mem_rdata <= pmod3_din;
+					if (mem_addr[7:0] == 8'h 44) mem_rdata <= pmod4_din;
 					mem_ready <= 1;
 				end
 				(mem_addr & 32'hF000_0000) == 32'h3000_0000: begin
