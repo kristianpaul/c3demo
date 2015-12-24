@@ -67,14 +67,32 @@ set_io PMOD1_8  C7
 set_io PMOD1_9  C6
 set_io PMOD1_10 B3
 
-set_io PMOD2_1  A9
-set_io PMOD2_2  B9
-set_io PMOD2_3  A10
-set_io PMOD2_4  B10
-set_io PMOD2_7  A11
-set_io PMOD2_8  B11
-set_io PMOD2_9  A16
-set_io PMOD2_10 A15
+set_io PMOD2_1  T3
+set_io PMOD2_2  T2
+set_io PMOD2_3  T1
+set_io PMOD2_4  R2
+set_io PMOD2_7  T8
+set_io PMOD2_8  T7
+set_io PMOD2_9  T6
+set_io PMOD2_10 T5
+
+set_io PMOD3_1  A11
+set_io PMOD3_2  B11
+set_io PMOD3_3  A16
+set_io PMOD3_4  A15
+set_io PMOD3_7  A9
+set_io PMOD3_8  B9
+set_io PMOD3_9  A10
+set_io PMOD3_10 B10
+
+set_io PMOD4_1  T10
+set_io PMOD4_2  T9
+set_io PMOD4_3  T16
+set_io PMOD4_4  T15
+set_io PMOD4_7  R14
+set_io PMOD4_8  T14
+set_io PMOD4_9  T13
+set_io PMOD4_10 T11
 
 set_io PANEL_A   L12
 set_io PANEL_B   L11
