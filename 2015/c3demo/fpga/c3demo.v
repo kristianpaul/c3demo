@@ -344,7 +344,9 @@ module c3demo (
 
 	wire resetn_picorv32 = resetn && !prog_mem_reset;
 
-	picorv32 cpu (
+	picorv32 #(
+		.ENABLE_IRQ(1)
+	) cpu (
 		.clk       (clk            ),
 		.resetn    (resetn_picorv32),
 		.trap      (cpu_trap       ),
@@ -354,7 +356,8 @@ module c3demo (
 		.mem_addr  (mem_addr       ),
 		.mem_wdata (mem_wdata      ),
 		.mem_wstrb (mem_wstrb      ),
-		.mem_rdata (mem_rdata      )
+		.mem_rdata (mem_rdata      ),
+		.irq       (32'b0          )
 	);
 
 
