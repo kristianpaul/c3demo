@@ -1,5 +1,9 @@
 
+ifeq ($(shell which icoprog),)
 SSH_RASPI := ssh pi@raspi
+else
+SSH_RASPI := sh -c
+endif
 
 all: appimage.hex
 
