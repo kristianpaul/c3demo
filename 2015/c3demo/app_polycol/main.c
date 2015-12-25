@@ -211,12 +211,41 @@ void handle_ctrls()
 	first = false;
 }
 
+void popupd()
+{
+	while (popdelta_y < 0) {
+		if (y_list_len > 0)
+			y_to_free(xorshift32(y_list_len));
+		popdelta_y++;
+	}
+
+	while (popdelta_b < 0) {
+		if (b_list_len > 0)
+			b_to_free(xorshift32(b_list_len));
+		popdelta_b++;
+	}
+
+	while (popdelta_y > 0) {
+		if (free_list_len > 0)
+			free_to_y(xorshift32(free_list_len));
+		popdelta_y--;
+	}
+
+	while (popdelta_b > 0) {
+		if (free_list_len > 0)
+			free_to_b(xorshift32(free_list_len));
+		popdelta_b--;
+	}
+}
+
 void update()
 {
 	memset(happy_map, 0, 32*32);
 
 	int count_happy_y = 0;
 	int count_happy_b = 0;
+
+	popupd();
 
 	for (int idx = 0; idx < y_list_len; idx++)
 	{
@@ -256,29 +285,7 @@ void update()
 		}
 	}
 
-	while (popdelta_y > 0) {
-		if (free_list_len > 0)
-			free_to_y(xorshift32(free_list_len));
-		popdelta_y--;
-	}
-
-	while (popdelta_b > 0) {
-		if (free_list_len > 0)
-			free_to_b(xorshift32(free_list_len));
-		popdelta_b--;
-	}
-
-	while (popdelta_y < 0) {
-		if (y_list_len > 0)
-			y_to_free(xorshift32(y_list_len));
-		popdelta_y++;
-	}
-
-	while (popdelta_b < 0) {
-		if (b_list_len > 0)
-			b_to_free(xorshift32(b_list_len));
-		popdelta_b++;
-	}
+	popupd();
 
 	int xy = 1;
 	for (int i = 0; i < y_list_len; i += 26, xy++) {
@@ -289,7 +296,7 @@ void update()
 	}
 
 	int xb = 30;
-	for (int i = 0; i < b_list_len; i += 26, xb--) {
+	for (int i = 0; i < b_list_len && xb != xy-1; i += 26, xb--) {
 		if (i < count_happy_b)
 			setpixel(xb, 0, 0, 0, 255);
 		else
