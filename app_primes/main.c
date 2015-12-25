@@ -2,13 +2,13 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-uint32_t xorshift32() {
-	static uint32_t x32 = 314159265;
-	x32 ^= x32 << 13;
-	x32 ^= x32 >> 17;
-	x32 ^= x32 << 5;
-	return x32;
-}
+uint32_t title[] = {
+	0b00001110111010100010111011100000,
+	0b00001010101010110110100010000000,
+	0b00001110111010101010110011100000,
+	0b00001000110010100010100000100000,
+	0b00001000101010100010111011100000
+};
 
 void setpixel(int x, int y, uint8_t r, uint8_t g, uint8_t b)
 {
@@ -19,16 +19,6 @@ void setpixel(int x, int y, uint8_t r, uint8_t g, uint8_t b)
 	}
 }
 
-void randpixel()
-{
-	uint8_t x = xorshift32() % 32;
-	uint8_t y = xorshift32() % 32;
-	uint8_t r = xorshift32();
-	uint8_t g = xorshift32();
-	uint8_t b = xorshift32();
-	setpixel(x, y, r, g, b);
-}
-
 #define MAX_PRIMES 1000000
 unsigned char p[MAX_PRIMES/16+1]; /* zero-initialized */
 
@@ -37,6 +27,36 @@ int primes_lt_1000 = 0;
 int primes_lt_10000 = 0;
 int primes_lt_100000 = 0;
 int primes_lt_1000000 = 0;
+
+void update_progress(int p)
+{
+	static int progress_x = 5;
+	static int progress_n = 0;
+
+	while (progress_n < primes_lt_1000000)
+	{
+		for (int y = 14; y < 18; y++)
+			setpixel(progress_x, y, 255, 0, 0);
+		
+		progress_x++;
+		progress_n += 3569;
+	}
+
+	for (int x = 26; x >= 5; x--)
+	{
+		if (p & 1) {
+			setpixel(x, 24, 255, 255, 0);
+			setpixel(x, 25, 255, 255, 0);
+			setpixel(x, 26, 255, 255, 0);
+		} else {
+			setpixel(x, 24, 8, 8, 8);
+			setpixel(x, 25, 8, 8, 8);
+			setpixel(x, 26, 8, 8, 8);
+		}
+
+		p = p >> 1;
+	}
+}
 
 void print_primes()
 {
@@ -59,9 +79,9 @@ void print_primes()
 		if (a < 100000) primes_lt_100000 = k;
 		if (a < 1000000) primes_lt_1000000 = k;
 
+		update_progress(a);
 		printf("%c%6d", (k-1) % 8 == 0 ? '\n' : ' ', a);
 		fflush(stdout);
-		randpixel();
 	}
 
 	printf("\n");
@@ -87,15 +107,27 @@ void print_primes()
 void main()
 {
 	for (int x = 0; x < 32; x++)
-	for (int y = 0; y < 32; y++) {
-		uint8_t r = xorshift32();
-		uint8_t g = xorshift32();
-		uint8_t b = xorshift32();
-		setpixel(x, y, r, g, b);
-	}
+	for (int y = 0; y < 32; y++)
+		setpixel(x, y, 0, 0, 0);
+
+	for (int x = 0; x < 32; x++)
+	for (int y = 0; y < 5; y++)
+		if ((title[y] >> (31-x)) & 1)
+			setpixel(x, y+3, 255, 255, 255);
+
+	for (int x = 4; x < 28; x++)
+	for (int y = 13; y < 19; y++)
+		setpixel(x, y, 255, 255, 255);
+
+	for (int x = 5; x < 27; x++)
+	for (int y = 14; y < 18; y++)
+		setpixel(x, y, 0, 0, 0);
 
 	print_primes();
 
-	while (1)
-		randpixel();
+	for (int x = 5; x < 27; x++)
+	for (int y = 14; y < 18; y++)
+		setpixel(x, y, 0, 255, 0);
+
+	asm volatile ("sbreak");
 }
