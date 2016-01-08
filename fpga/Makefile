@@ -43,11 +43,11 @@ firmware.hex: makehex.py firmware.bin
 c3demo.blif: c3demo.v ledpanel.v picorv32.v firmware.hex
 	yosys -v2 -p 'synth_ice40 -abc2 -top c3demo -blif c3demo.blif' c3demo.v ledpanel.v picorv32.v
 
-c3demo.txt: c3demo.pcf c3demo.blif
-	arachne-pnr -s 1 -d 8k -p c3demo.pcf -o c3demo.txt c3demo.blif
+c3demo.asc: c3demo.pcf c3demo.blif
+	arachne-pnr -s 1 -d 8k -p c3demo.pcf -o c3demo.asc c3demo.blif
 
-c3demo.bin: c3demo.txt
-	icepack c3demo.txt c3demo.bin
+c3demo.bin: c3demo.asc
+	icepack c3demo.asc c3demo.bin
 
 timestamp:
 	find . -type f -printf '%T@ %P\n' | sort | tail -n1
@@ -87,7 +87,7 @@ debug:
 clean:
 	rm -f c3demo.bin
 	rm -f c3demo.blif
-	rm -f c3demo.txt
+	rm -f c3demo.asc
 	rm -f firmware.bin
 	rm -f firmware.elf
 	rm -f firmware.hex
