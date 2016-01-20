@@ -49,10 +49,8 @@ c3demo.asc: c3demo.pcf c3demo.blif
 c3demo.bin: c3demo.asc
 	icepack c3demo.asc c3demo.bin
 
-c3demo.itr: c3demo.itv
-
-c3demo.itv: c3demo.asc
-	icetime -t c3demo.asc c3demo.itv | tee c3demo.itr
+c3demo.rpt: c3demo.asc
+	icetime -tr c3demo.rpt c3demo.asc
 
 timestamp:
 	find . -type f -printf '%T@ %P\n' | sort | tail -n1
@@ -93,8 +91,7 @@ clean:
 	rm -f c3demo.bin
 	rm -f c3demo.blif
 	rm -f c3demo.asc
-	rm -f c3demo.itr
-	rm -f c3demo.itv
+	rm -f c3demo.rpt
 	rm -f firmware.bin
 	rm -f firmware.elf
 	rm -f firmware.hex
