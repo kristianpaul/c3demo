@@ -17,6 +17,11 @@ module c3demo (
 	input CLK12MHZ,
 	output reg DEBUG0, DEBUG1, LED1, LED2, LED3,
 
+	output reg SPI_FLASH_CS,
+	output reg SPI_FLASH_SCLK,
+	output reg SPI_FLASH_MOSI,
+	input      SPI_FLASH_MISO,
+
 	// 32x32 LED Panel
 	output PANEL_R0, PANEL_G0, PANEL_B0, PANEL_R1, PANEL_G1, PANEL_B1,
 	output PANEL_A, PANEL_B, PANEL_C, PANEL_D, PANEL_CLK, PANEL_STB, PANEL_OE,
@@ -455,6 +460,10 @@ module c3demo (
 			DEBUG0 <= 0;
 			DEBUG1 <= 0;
 
+			SPI_FLASH_CS   <= 1;
+			SPI_FLASH_SCLK <= 1;
+			SPI_FLASH_MOSI <= 0;
+
 			send_ep2_valid <= 0;
 
 			if (prog_mem_active) begin
@@ -538,6 +547,7 @@ module c3demo (
 						if (mem_addr[7:0] == 8'h 34) pmod3_dout <= mem_wdata;
 						if (mem_addr[7:0] == 8'h 40) pmod4_dir <= mem_wdata;
 						if (mem_addr[7:0] == 8'h 44) pmod4_dout <= mem_wdata;
+						if (mem_addr[7:0] == 8'h 50) {SPI_FLASH_CS, SPI_FLASH_SCLK, SPI_FLASH_MOSI} <= mem_wdata[3:1];
 					end
 					mem_rdata <= 0;
 					if (mem_addr[7:0] == 8'h 00) mem_rdata <= {DEBUG1, DEBUG0, LED3, LED2, LED1};
@@ -545,6 +555,7 @@ module c3demo (
 					if (mem_addr[7:0] == 8'h 24) mem_rdata <= pmod2_din;
 					if (mem_addr[7:0] == 8'h 34) mem_rdata <= pmod3_din;
 					if (mem_addr[7:0] == 8'h 44) mem_rdata <= pmod4_din;
+					if (mem_addr[7:0] == 8'h 50) mem_rdata <= {SPI_FLASH_CS, SPI_FLASH_SCLK, SPI_FLASH_MOSI, SPI_FLASH_MISO};
 					mem_ready <= 1;
 				end
 				(mem_addr & 32'hF000_0000) == 32'h3000_0000: begin
