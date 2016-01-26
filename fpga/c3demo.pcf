@@ -6,6 +6,11 @@ set_io LED1 C8
 set_io LED2 F7
 set_io LED3 K9
 
+set_io SPI_FLASH_CS   R12
+set_io SPI_FLASH_SCLK R11
+set_io SPI_FLASH_MOSI P12
+set_io SPI_FLASH_MISO P11
+
 set_io RASPI_11 A5
 set_io RASPI_12 F9
 set_io RASPI_15 E9
