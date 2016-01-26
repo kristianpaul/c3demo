@@ -141,37 +141,48 @@ const uint32_t splash_screen_r[] = {
 	0b00000000000000000000000000000000
 };
 
+volatile uint32_t *const flashreg = (void*)0x20000050;
+bool in_flash_mode = false;
+
+void spi_flash_cs(bool enable)
+{
+	if (enable)
+		*flashreg &= ~8;
+	else
+		*flashreg |= 8;
+}
+
+uint8_t spi_flash_xfer_bit(uint8_t value)
+{
+	// set or clear MOSI, clock down
+	if (value != 0)
+		*flashreg = (*flashreg | 2) & ~4;
+	else
+		*flashreg = (*flashreg & ~2) & ~4;
+	
+	// sample out bit, clock up
+	uint32_t r = *flashreg;
+	*flashreg = r | 4;
+
+	return r & 1;
+}
+
+uint8_t spi_flash_xfer_byte(uint8_t value)
+{
+	uint8_t outval = 0, bitmask = 0x80;
+
+	while (bitmask != 0) {
+		if (spi_flash_xfer_bit(value & bitmask))
+			outval |= bitmask;
+		bitmask = bitmask >> 1;
+	}
+
+	return outval;
+}
+
 static inline void setled(int v)
 {
 	*(volatile uint32_t*)0x20000000 = v;
-}
-
-static int console_getc()
-{
-	while (1) {
-		int c = *(volatile uint32_t*)0x30000000;
-		if (c >= 0) return c;
-	}
-}
-
-static void console_putc(int c)
-{
-	*(volatile uint32_t*)0x30000000 = c;
-}
-
-static void console_puth(uint32_t v)
-{
-	for (int i = 0; i < 8; i++) {
-		int d = v >> 28;
-		console_putc(d < 10 ? '0' + d : 'a' + d - 10);
-		v = v << 4;
-	}
-}
-
-static void console_puts(const char *s)
-{
-	while (*s)
-		*(volatile uint32_t*)0x30000000 = *(s++);
 }
 
 void setpixel(int x, int y, uint8_t r, uint8_t g, uint8_t b)
@@ -181,6 +192,123 @@ void setpixel(int x, int y, uint8_t r, uint8_t g, uint8_t b)
 		uint32_t addr = 4*x + 32*4*y + 0x10000000;
 		*(volatile uint32_t*)addr = rgb;
 	}
+}
+
+static void flashscreen()
+{
+	static int counter = 0;
+	counter++;
+
+	for (int x = 0; x < 32; x++)
+	for (int y = 0; y < 32; y++)
+		if (y < 14 || y > 16 || x < 2 || x > 30 || ((x+6) % 8) < 5)
+			setpixel(x, y, 0, 0, 0);
+		else
+		{
+			int c = counter;
+
+			if (x < 10)
+				c += 1;
+			else if (x < 20)
+				c += 2;
+			else if (x < 30)
+				c += 3;
+
+			switch (c % 8) {
+				case 0: setpixel(x, y, 255, 0, 0); break;
+				case 1: setpixel(x, y, 0, 255, 0); break;
+				case 2: setpixel(x, y, 0, 0, 255); break;
+				case 3: setpixel(x, y, 255, 255, 0); break;
+				case 4: setpixel(x, y, 255, 0, 255); break;
+				case 5: setpixel(x, y, 0, 255, 255); break;
+				case 6: setpixel(x, y, 10, 10, 10); break;
+				case 7: setpixel(x, y, 255, 255, 255); break;
+			}
+		}
+}
+
+static void console_putc(int c)
+{
+	if (in_flash_mode)
+		return;
+
+	*(volatile uint32_t*)0x30000000 = c;
+}
+
+static void console_puth(uint32_t v)
+{
+	if (in_flash_mode)
+		return;
+
+	for (int i = 0; i < 8; i++) {
+		int d = v >> 28;
+		console_putc(d < 10 ? '0' + d : 'a' + d - 10);
+		v = v << 4;
+	}
+}
+
+static void console_puts(const char *s)
+{
+	if (in_flash_mode)
+		return;
+
+	while (*s)
+		*(volatile uint32_t*)0x30000000 = *(s++);
+}
+
+static int console_getc()
+{
+	static int load_timeout = 0;
+
+	while (load_timeout < 1000000)
+	{
+		int c = *(volatile uint32_t*)0x30000000;
+		load_timeout++;
+
+		if (c >= 0) {
+			load_timeout = 0;
+			return c;
+		}
+	}
+
+	if (!in_flash_mode)
+	{
+		console_puts("FLASHBOOT ");
+		in_flash_mode = true;
+		spi_flash_cs(false);
+		flashscreen();
+
+		// flash_power_up
+		spi_flash_cs(true);
+		spi_flash_xfer_byte(0xab);
+		spi_flash_cs(false);
+
+		// read data at 256 kB offset
+		spi_flash_cs(true);
+		spi_flash_xfer_byte(0x03);
+		spi_flash_xfer_byte(4);
+		spi_flash_xfer_byte(0);
+		spi_flash_xfer_byte(0);
+	} else
+	if (load_timeout++ % 0x1000 == 0)
+		flashscreen();
+
+	int c = spi_flash_xfer_byte(0);
+
+	if (c == '*')
+	{
+		// end of read
+		spi_flash_cs(false);
+
+		// flash_power_down
+		spi_flash_cs(true);
+		spi_flash_xfer_byte(0xb9);
+		spi_flash_cs(false);
+
+		return 0;
+	}
+
+	return c;
 }
 
 bool ishex(char ch)
@@ -252,6 +380,7 @@ void main()
 			}
 
 			if (ch == 0) {
+				in_flash_mode = false;
 				console_puts("RUN\n");
 				break;
 			}
@@ -299,4 +428,12 @@ void main()
 	}
 
 	setled(0); // LEDs ...
+
+	for (int x = 0; x < 32; x++)
+	for (int y = 0; y < 32; y++)
+		if (y < 14 || y > 16 || x < 2 || x > 30 || ((x+6) % 8) < 5)
+			setpixel(x, y, 0, 0, 0);
+		else
+			setpixel(x, y, 255, 255, 255);
 }
+
